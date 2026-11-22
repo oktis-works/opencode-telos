@@ -29,6 +29,7 @@ import type {
 import { approveChange, createChange, preflightChangeScope } from "../changes/manager.js"
 import { addRelationship, getNode, updateNode } from "../graph/engine.js"
 import { getTask, statusToColumn } from "./board.js"
+import { canCreateChange } from "../lifecycle/project-phase.js"
 
 /** Spec node types a task can point at; they become the Change impact scope. */
 /** The project root is always linked to a task, so it is not an impact. */
@@ -169,6 +170,11 @@ export function openChangeForTask(
 ): OpenChangeResult {
   const task = getTask(graph, taskId)
   if (!task) throw new Error(`Task ${taskId} not found`)
+
+  const gate = canCreateChange(graph)
+  if (!gate.allowed) {
+    throw new Error(gate.reason || "Changes are only created after the documentation baseline is finalized.")
+  }
 
   const existing = findTaskChange(graph, taskId)
   if (existing) {

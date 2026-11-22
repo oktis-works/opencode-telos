@@ -168,6 +168,18 @@ export interface ProjectNode extends Node {
     description?: string
     stack?: string[]
     purpose?: SddPurpose
+    /** Explicit project phase and documentation baseline marker. */
+    lifecycle?: {
+      phase: "bootstrap" | "delivery" | "evolution"
+      baseline: {
+        status: "PENDING" | "COMPLETE"
+        completed_at?: string
+        completed_by?: string
+        version?: number
+        notes?: string
+      }
+      updated_at: string
+    }
   }
 }
 

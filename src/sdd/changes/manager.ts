@@ -8,13 +8,22 @@ import type {
 import { getNode, addNode, addRelationship, updateNode } from "../graph/engine.js"
 import { computeImpact } from "../graph/traverse.js"
 import { extractPromises } from "../promises/tracker.js"
+import { canCreateChange, markEvolution } from "../lifecycle/project-phase.js"
 
-let changeCounter = 0
-
+/**
+ * Next `CHG-###` id based on the highest existing suffix, not on the node count.
+ * Counting made a removal reuse an id still referenced by transcripts/tests.
+ */
 function nextChangeId(graph: KnowledgeGraph): string {
-  const existing = graph.nodes.filter((n) => n.type === "change")
-  changeCounter = existing.length + 1
-  return `CHG-${String(changeCounter).padStart(3, "0")}`
+  let max = 0
+  for (const node of graph.nodes) {
+    if (node.type !== "change") continue
+    const match = /^CHG-(\d+)$/.exec(node.id)
+    if (!match) continue
+    const suffix = Number.parseInt(match[1], 10)
+    if (Number.isInteger(suffix) && suffix > max) max = suffix
+  }
+  return `CHG-${String(max + 1).padStart(3, "0")}`
 }
 
 export interface ChangeProposal {
@@ -82,6 +91,11 @@ export function createChange(
   proposal: ChangeProposal,
   options?: ChangeCreationOptions,
 ): ChangeNode {
+  const gate = canCreateChange(graph)
+  if (!gate.allowed) {
+    throw new Error(gate.reason || "Changes are not allowed while the documentation baseline is open.")
+  }
+
   const now = new Date().toISOString()
   const id = nextChangeId(graph)
   const approvalLevel = classifyApprovalLevel(proposal, graph)
@@ -143,6 +157,9 @@ export function createChange(
   }
 
   addNode(graph, changeNode)
+  // First Change after the baseline closes the delivery phase and opens
+  // evolution. Task approval remains the human gate.
+  markEvolution(graph)
 
   // Materialize the Change scope as edges immediately, so every execution
   // path (agent tool, dashboard, workflow chain, or smart enforcement) starts

@@ -526,5 +526,61 @@ A arquitetura **Grafos (indexador) + Markdown (detalhamento)** é:
 ### 📦 Próximos Passos para Publicação
 
 1. **Commit das mudanças** com mensagem convencional
-2. **Bump de versão** (patch: 1.1.17 → 1.1.18)
+2. **Bump de versão** (minor: 3.2.7 → 3.3.0)
 3. **Publicar no npm** manualmente
+
+---
+
+## 12. Ciclo de Vida e Dossiês por Task (v3.3.0)
+
+A arquitetura híbrida foi estendida para separar a construção da documentação
+inicial da evolução do produto. O grafo continua sendo o índice; o Markdown
+detalha cada nó; e cada task passa a ter um dossiê próprio.
+
+### Fases
+
+| Fase | O que acontece | Change node | Gate de escrita |
+|------|----------------|-------------|-----------------|
+| `bootstrap` | descoberta, grafo, `.md`, backlog de tasks | proibido | nenhum código de produto |
+| `delivery` | implementação das tasks do baseline | não exigido | task aprovada cobrindo os arquivos |
+| `evolution` | modificações posteriores ao baseline | registro de auditoria | task aprovada; Change aprovado continua aceito por compatibilidade |
+
+O marco fica em `project.metadata.lifecycle` e é fechado por
+`sdd.finalize_baseline` (`confirm: true`). Projetos legados sem o campo são
+inferidos de forma conservadora.
+
+### Fluxo de uma task
+
+```
+create/update → integrar ao grafo → aprovar task → Write/Edit + shell
+      │                │                  │
+      └── dossiê .md/.mmd ────────────────┘
+```
+
+A aprovação é humana e única. Aprovar uma task exige arquivos declarados;
+alterar o escopo depois da aprovação invalida a aprovação. O Change deixa de
+ser o gate de delivery e passa a registrar evolução.
+
+### Dossiê
+
+Cada task aprovada (e também na integração/atualização) produz:
+
+```
+.sdd/tasks/<TASK-ID>/
+├── README.md          # objetivo, escopo, testes, aprovação e links
+├── traceability.md    # subgrafo resolvido, relações, critérios e docs dos nós
+├── flow.mmd           # fluxo da task
+├── data-model.mmd     # entidades, value objects e tabelas
+├── sequence.mmd       # atores, endpoints e casos de uso
+└── architecture.mmd   # componentes, módulos, APIs e bancos
+```
+
+`.sdd/tasks/index.md` lista todas as tasks e o estado de aprovação. Os diagramas
+são determinísticos (sem LLM), com IDs sanitizados e labels escapados.
+
+### Validação
+
+- `npm run typecheck` — 0 erros
+- `bun test` — 484 testes, 0 falhas
+- `npm run build` — sucesso
+- Versão sincronizada em `3.3.0` em `package.json`, `marketplace.json` e `src/version.ts`

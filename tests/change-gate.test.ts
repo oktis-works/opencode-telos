@@ -243,6 +243,24 @@ describe("Change tools honour the scope gate", () => {
     const ctx = { directory: dir, sessionID: `session-${Date.now()}` }
     const tools = createSddTools()
     await (tools["sdd.initialize"] as any).execute({ project_name: "Gate" }, ctx)
+    // Change nodes now require a closed documentation baseline.
+    await (tools["sdd.build_graph"] as any).execute({
+      briefing: "A feature used by the gate tests.",
+      analysis_json: JSON.stringify({
+        features: [{ name: "Gate feature", description: "Gate feature", priority: "high" }],
+        entities: [],
+        endpoints: [],
+        businessRules: [],
+        architectureComponents: [],
+        decisions: [],
+        requirements: [{ name: "Gate requirement", description: "Gate requirement", type: "functional", priority: "high", acceptanceCriteria: [] }],
+        tasks: [],
+        relationships: [],
+        domains: [],
+        techStack: {},
+      }),
+    }, ctx)
+    await (tools["sdd.finalize_baseline"] as any).execute({ confirm: true }, ctx)
     return { dir, ctx }
   }
 

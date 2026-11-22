@@ -23,10 +23,22 @@ import type {
 } from "../domain/types.js"
 import { addNode, addRelationship, getNode, removeNode, updateNode } from "../graph/engine.js"
 import { createAcceptanceCriterion, getAcceptanceCriteria } from "../acceptance/service.js"
+import { getProjectLifecycle, isBaselineComplete } from "../lifecycle/project-phase.js"
 
 export type TaskColumn = "backlog" | "ready" | "in_progress" | "blocked" | "done"
 
 export type IntegrationStatus = "pending" | "integrated" | "manual"
+
+export type TaskApprovalStatus = "PENDING" | "APPROVED" | "REJECTED"
+
+export interface TaskApproval {
+  status: TaskApprovalStatus
+  approved_by?: string
+  approved_at?: string
+  rejected_by?: string
+  rejected_at?: string
+  note?: string
+}
 
 export type TaskPriority = "critical" | "high" | "medium" | "low"
 
@@ -124,6 +136,110 @@ export function getTask(graph: KnowledgeGraph, id: string): TaskNode | undefined
   return node && node.type === "task" ? (node as TaskNode) : undefined
 }
 
+/** Approval state of a task. Legacy tasks without the field are PENDING. */
+export function taskApproval(task: TaskNode): TaskApproval {
+  const value = (task.metadata as Record<string, unknown>).approval
+  if (!value || typeof value !== "object") return { status: "PENDING" }
+  const raw = value as Record<string, unknown>
+  const status: TaskApprovalStatus =
+    raw.status === "APPROVED" || raw.status === "REJECTED" ? raw.status : "PENDING"
+  return {
+    status,
+    ...(typeof raw.approved_by === "string" ? { approved_by: raw.approved_by } : {}),
+    ...(typeof raw.approved_at === "string" ? { approved_at: raw.approved_at } : {}),
+    ...(typeof raw.rejected_by === "string" ? { rejected_by: raw.rejected_by } : {}),
+    ...(typeof raw.rejected_at === "string" ? { rejected_at: raw.rejected_at } : {}),
+    ...(typeof raw.note === "string" ? { note: raw.note } : {}),
+  }
+}
+
+export function isTaskApproved(task: TaskNode): boolean {
+  return taskApproval(task).status === "APPROVED"
+}
+
+function normalizeRepoPath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+/g, "/")
+}
+
+/** True when `filePath` is inside the file scope declared by the task. */
+export function taskCoversFile(task: TaskNode, filePath: string): boolean {
+  const target = normalizeRepoPath(filePath)
+  const files = Array.isArray((task.metadata as Record<string, unknown>).files)
+    ? ((task.metadata as Record<string, unknown>).files as unknown[]).filter((file): file is string => typeof file === "string")
+    : []
+  return files.some((scope) => {
+    const normalized = normalizeRepoPath(scope)
+    if (!normalized || !target) return false
+    return target === normalized || target.endsWith(`/${normalized}`) || normalized.endsWith(`/${target}`)
+  })
+}
+
+/**
+ * The delivery write authorization: an APPROVED task covering the file.
+ * Completed tasks no longer authorize writes.
+ */
+export function findApprovedTaskForFile(graph: KnowledgeGraph, filePath: string): TaskNode | undefined {
+  return getTaskNodes(graph).find(
+    (task) =>
+      isTaskApproved(task) &&
+      task.status !== "completed" &&
+      task.status !== "COMPLETED" &&
+      taskCoversFile(task, filePath),
+  )
+}
+
+/**
+ * Approve a task. This is the only human gate for delivery: the declared files
+ * become writable immediately, with no Change node.
+ */
+export function approveTask(graph: KnowledgeGraph, id: string, actor?: string, note?: string): TaskNode {
+  const task = getTask(graph, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+
+  const metadata = { ...(task.metadata as Record<string, unknown>) }
+  const files = Array.isArray(metadata.files)
+    ? (metadata.files as unknown[]).filter((file): file is string => typeof file === "string" && file.trim().length > 0)
+    : []
+  if (files.length === 0) {
+    throw new Error(
+      `Task ${id} declares no files. Declare the files it will write before approving it.`,
+    )
+  }
+
+  metadata.approval = {
+    status: "APPROVED",
+    ...(actor ? { approved_by: actor } : {}),
+    approved_at: new Date().toISOString(),
+    ...(note ? { note } : {}),
+  }
+  metadata.approved_files = [...files]
+  metadata.board_column = "in_progress"
+
+  return updateNode(graph, id, {
+    status: "in_progress",
+    metadata: metadata as TaskNode["metadata"],
+  }) as TaskNode
+}
+
+export function rejectTask(graph: KnowledgeGraph, id: string, actor?: string, note?: string): TaskNode {
+  const task = getTask(graph, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+
+  const metadata = { ...(task.metadata as Record<string, unknown>) }
+  metadata.approval = {
+    status: "REJECTED",
+    ...(actor ? { rejected_by: actor } : {}),
+    rejected_at: new Date().toISOString(),
+    ...(note ? { note } : {}),
+  }
+  metadata.board_column = "blocked"
+
+  return updateNode(graph, id, {
+    status: "blocked",
+    metadata: metadata as TaskNode["metadata"],
+  }) as TaskNode
+}
+
 /**
  * Next `TASK-###` id, matching the format produced by `sdd.graph_mutation(action="add_node")`
  * (`${project_id}-TASK-001`). Scans for the highest existing suffix instead of
@@ -159,9 +275,11 @@ export interface TaskBoardItem {
   metadata: Record<string, unknown>
   integration_status: IntegrationStatus
   priority: TaskPriority
-  /** SDD Change opened by this task, if any. */
+  /** SDD Change opened by this task, if any (evolution only). */
   change_id?: string
   change_status?: NodeStatus
+  /** Human approval; the delivery write gate. */
+  approval: TaskApproval
   created_at: string
   updated_at: string
   links: TaskLink[]
@@ -214,6 +332,7 @@ export function toTaskBoardItem(graph: KnowledgeGraph, task: TaskNode): TaskBoar
     metadata,
     integration_status: taskIntegrationStatus(task),
     priority: taskPriority(task),
+    approval: taskApproval(task),
     change_id: change?.type === "change" ? change.id : undefined,
     change_status: change?.type === "change" ? change.status : undefined,
     created_at: task.created_at,
@@ -412,6 +531,9 @@ export function createTask(graph: KnowledgeGraph, input: CreateTaskInput): TaskN
     integration_status: input.integration_status ?? "pending",
     origin: input.origin ?? "dashboard",
     created_from: input.origin ?? "dashboard",
+    approval: { status: "PENDING" },
+    created_in_phase: getProjectLifecycle(graph).phase,
+    change_required: isBaselineComplete(graph),
   }
   if (input.goal) metadata.goal = input.goal
   if (input.files?.length) metadata.files = input.files
@@ -487,7 +609,14 @@ export function updateTask(graph: KnowledgeGraph, id: string, input: UpdateTaskI
   const metadata: Record<string, unknown> = { ...(task.metadata as Record<string, unknown>) }
   if (input.metadata) Object.assign(metadata, input.metadata)
   if (input.goal !== undefined) metadata.goal = input.goal
+  const previousFiles = JSON.stringify(metadata.files ?? [])
   if (input.files !== undefined) metadata.files = input.files
+  // Changing the scope invalidates a previous approval: the human approved a
+  // different set of files.
+  if (input.files !== undefined && JSON.stringify(input.files) !== previousFiles) {
+    metadata.approval = { status: "PENDING" }
+    delete metadata.approved_files
+  }
   if (input.acceptance !== undefined) {
     const requirement = graph.relationships
       .filter((rel) => rel.from === task.id && rel.type === "implements")
@@ -577,8 +706,9 @@ export function buildIntegrationBrief(graph: KnowledgeGraph): string {
     "**How to integrate:** link the task to its `feature`/`requirement` with `sdd.graph_mutation(action=\"add_relationship\")` " +
       "(type `implements`), create a `test` when there is coverage (`tested_by`) and record `decision`/`file` " +
       "where it makes sense. Do not touch source files at this stage — it is specification only. " +
-      'When done, call `sdd.integrate_tasks` with `action="mark_integrated"` and the `task_id` — the integrated task ' +
-      'opens the SDD Change automatically, and that Change is what authorizes writing code.',
+      'When done, call `sdd.integrate_tasks` with `action="mark_integrated"` and the `task_id`. ' +
+      "Integration generates the task dossier; it does NOT open a Change. " +
+      'Approve the task with `sdd.integrate_tasks` (`action="approve_task"`) — that approval authorizes the declared files.',
   )
   return lines.join("\n")
 }
@@ -594,9 +724,10 @@ export function buildTaskIntegrationPrompt(taskId: string, name: string): string
     "1. Call `sdd.integrate_tasks` with `action=\"list\"` to see the integration plan.",
     "2. Create the relationships and supporting nodes (`implements` for feature/requirement, `tested_by`, `depends_on`/`blocked_by`, `decision`, `file`).",
     `3. When done, call \`sdd.integrate_tasks\` with \`action="mark_integrated"\` and \`task_id="${taskId}"\`.`,
-    "   That opens the task's SDD Change (the code write authorization).",
-    `4. If the Change stays in draft, approve it with \`sdd.integrate_tasks\` (\`action="approve_change"\`, \`task_id="${taskId}"\`) and then implement the matching code.`,
+    "   Integration generates the task dossier and does NOT open a Change.",
+    `4. Approve the task with \`sdd.integrate_tasks\` (\`action="approve_task"\`, \`task_id="${taskId}"\`).`,
+    "   Approval authorizes the declared files for Write/Edit and shell writes.",
     "",
-    "Integration only changes the SDD graph — write code only after the Change is approved.",
+    "Integration only changes the SDD graph — write code only after the task is approved.",
   ].join("\n")
 }

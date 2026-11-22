@@ -1,6 +1,6 @@
 {
   "name": "@oktis-works/telos-sdd-graph",
-  "version": "3.2.7",
+  "version": "3.3.0",
   "description": "OpenCode Telos - Spec-Driven Development plugin with Knowledge Graph enforcement",
   "homepage": "https://github.com/JudahAragao/opencode-telos#readme",
   "repository": {
@@ -29,8 +29,8 @@
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts,tsx",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "version:sync": "node scripts/sync-version.cjs",
     "prepack": "npm run build",
     "release": "npm publish --access public"

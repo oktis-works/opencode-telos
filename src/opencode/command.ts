@@ -11,11 +11,14 @@ import { createRepository, loadSddConfig } from "../sdd/persistence/repository.j
 import {
   TASK_COLUMN_LABELS,
   TASK_COLUMNS,
+  approveTask,
   buildIntegrationBrief,
   getPendingIntegrationTasks,
   listTasks,
+  rejectTask,
 } from "../sdd/tasks/board.js"
 import { formatOpenChangeResult, openChangeForTask } from "../sdd/tasks/change-bridge.js"
+import { writeTaskDossier } from "../sdd/tasks/dossier.js"
 import {
   startSharedDashboard,
   stopSharedDashboard,
@@ -485,8 +488,41 @@ function sddTasks(projectDir: string, input: SddCommandInput): string {
     return buildIntegrationBrief(graph)
   }
 
-  // `/sdd tasks change <TASK-ID> [--approve]` — opens the SDD Change that
-  // authorizes the code of the task (the write gate needs an approved Change).
+  // `/sdd tasks approve|reject <TASK-ID>` — the delivery gate.
+  if (/^(approve|reject)\b/i.test(rawAction)) {
+    const kind = /^approve/i.test(rawAction) ? "approve" : "reject"
+    const requested = rawAction.replace(/^(approve|reject)\b\s*/i, "").trim()
+    if (!requested) return `Provide the task: \`/sdd tasks ${kind} TASK-001\`.`
+    const task = listTasks(graph).find(
+      (candidate) =>
+        candidate.id.toLowerCase() === requested.toLowerCase() ||
+        candidate.name.toLowerCase() === requested.toLowerCase(),
+    )
+    if (!task) return `Task \`${requested}\` not found. Run \`/sdd tasks\` to list them.`
+    try {
+      const actor = process.env.USER || process.env.USERNAME || "current"
+      const updated = kind === "approve"
+        ? approveTask(graph, task.id, actor)
+        : rejectTask(graph, task.id, actor)
+      const dossier = writeTaskDossier(projectDir, graph, updated.id)
+      repo.saveGraph(graph)
+      return [
+        `## Task ${updated.id} ${kind === "approve" ? "APPROVED" : "REJECTED"}`,
+        "",
+        `**Status:** ${updated.status}`,
+        `**Dossier:** \`${dossier.files["README.md"]}\``,
+        "",
+        kind === "approve"
+          ? "The declared files are now writable. No Change is required for delivery."
+          : "The task is blocked until its scope is revised and approved again.",
+      ].join("\n")
+    } catch (error) {
+      return `## Task NOT ${kind === "approve" ? "approved" : "rejected"}\n\n${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+
+  // `/sdd tasks change <TASK-ID> [--approve]` — evolution only.
+  // Change nodes are refused during bootstrap; task approval is the delivery gate.
   if (/^change\b/i.test(rawAction)) {
     const rest = rawAction.replace(/^change\b\s*/i, "")
     const approve = /--approve\b/i.test(rest)
@@ -578,7 +614,7 @@ function sddTasks(projectDir: string, input: SddCommandInput): string {
     }
     lines.push("")
   }
-  lines.push("Commands: `/sdd tasks`, `/sdd tasks integrate`, `/sdd tasks board`, `/sdd tasks change <TASK-ID>`")
+  lines.push("Commands: `/sdd tasks`, `/sdd tasks integrate`, `/sdd tasks board`, `/sdd tasks approve <TASK-ID>`, `/sdd tasks reject <TASK-ID>`, `/sdd tasks change <TASK-ID>`")
   return lines.join("\n")
 }
 

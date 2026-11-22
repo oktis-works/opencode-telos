@@ -15,10 +15,12 @@ import {
   TASK_PRIORITY_LABELS,
   TASK_PRIORITIES,
   TASK_SORT_KEYS,
+  approveTask,
   createTask,
   getTask,
   queryTasks,
   markTaskIntegrated,
+  rejectTask,
   removeTask,
   updateTask,
   type TaskColumn,
@@ -31,6 +33,7 @@ import {
   openChangeForTask,
 } from "../sdd/tasks/change-bridge.js"
 import { requestAgentTurn, requestTaskIntegration } from "./dashboard-context.js"
+import { writeTaskDossier } from "../sdd/tasks/dossier.js"
 import { sddDebug } from "../sdd/log.js"
 
 export interface TasksApiResult {
@@ -320,7 +323,11 @@ export function handleOpenChange(projectDir: string, id: string, raw: unknown): 
     }
   } catch (error) {
     sddDebug("tasks-api", `open change failed: ${String(error)}`)
-    return { status: classifyError(error), body: errorBody(error) }
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      status: /bootstrap|baseline/i.test(message) ? 409 : classifyError(error),
+      body: errorBody(error),
+    }
   }
 }
 
@@ -331,10 +338,45 @@ export function handleMarkIntegrated(projectDir: string, id: string): TasksApiRe
     if (!repo.isInitialized()) return notInitialized()
     const graph = repo.loadGraph()
     const task = markTaskIntegrated(graph, id)
+    const dossier = writeTaskDossier(projectDir, graph, task.id)
     repo.saveGraph(graph)
-    return { status: 200, body: { task: { id: task.id, name: task.name } } }
+    return { status: 200, body: { task: { id: task.id, name: task.name }, dossier: dossier.files["README.md"] } }
   } catch (error) {
     sddDebug("tasks-api", `mark integrated failed: ${String(error)}`)
+    return { status: classifyError(error), body: errorBody(error) }
+  }
+}
+
+/** Approve/reject a task — the single delivery gate. */
+export function handleTaskApproval(projectDir: string, id: string, approve: boolean, raw?: unknown): TasksApiResult {
+  try {
+    const repo = createRepository(projectDir)
+    if (!repo.isInitialized()) return notInitialized()
+    const graph = repo.loadGraph()
+    if (!getTask(graph, id)) return { status: 404, body: { error: `Task ${id} not found` } }
+
+    const body = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+    const note = typeof body.note === "string" ? body.note : undefined
+    const actor = process.env.USER || process.env.USERNAME || "current"
+    const task = approve ? approveTask(graph, id, actor, note) : rejectTask(graph, id, actor, note)
+    const dossier = writeTaskDossier(projectDir, graph, task.id)
+    repo.saveGraph(graph)
+
+    return {
+      status: 200,
+      body: {
+        task: {
+          id: task.id,
+          name: task.name,
+          status: task.status,
+          approval: (task.metadata as Record<string, unknown>).approval,
+        },
+        dossier: dossier.files["README.md"],
+        authorized_files: Array.isArray(task.metadata.files) ? task.metadata.files : [],
+      },
+    }
+  } catch (error) {
+    sddDebug("tasks-api", `task approval failed: ${String(error)}`)
     return { status: classifyError(error), body: errorBody(error) }
   }
 }

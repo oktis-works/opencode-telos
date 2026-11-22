@@ -331,7 +331,16 @@ export class YamlGraphRepository implements GraphRepository {
           description,
           status: "DRAFT",
           version: 1,
-          metadata: { name, description, purpose },
+          metadata: {
+            name,
+            description,
+            purpose,
+            lifecycle: {
+              phase: "bootstrap",
+              baseline: { status: "PENDING" },
+              updated_at: now,
+            },
+          },
           created_at: now,
           updated_at: now,
         },

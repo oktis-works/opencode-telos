@@ -17,6 +17,7 @@ import type {
 } from "./briefing-analyzer.js"
 import { progressEmitter } from "../../server/events.js"
 import { createAcceptanceCriterion } from "../acceptance/service.js"
+import { ensureProjectLifecycle } from "../lifecycle/project-phase.js"
 
 export interface GraphBuildResult {
   nodesCreated: number
@@ -779,6 +780,10 @@ export function buildGraphFromAnalysis(
   graph: KnowledgeGraph,
   analysis: BriefingDeepAnalysis,
 ): GraphBuildResult {
+  // New projects start in bootstrap: docs and the task backlog are built
+  // without creating Change nodes. Legacy projects with tasks stay in delivery.
+  ensureProjectLifecycle(graph, graph.nodes.some((node) => node.type === "task") ? "delivery" : "bootstrap")
+
   const byType: Record<string, number> = {}
   const buildId = `build-${Date.now()}`
 

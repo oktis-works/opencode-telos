@@ -44,6 +44,13 @@ export const STANDALONE_CATEGORIES: Record<string, IntentCategory[]> = {
   // ── Mutation ────────────────────────────────────────────────────
   "sdd.initialize": ["mutation"],
   "sdd.build_graph": ["mutation", "discovery"],
+  "sdd.create_node_with_links": ["mutation"],
+  "sdd.generate_node_doc": ["implementation", "mutation"],
+  "sdd.read_node_doc": ["query"],
+  "sdd.read_node_doc_history": ["query"],
+  "sdd.sync_markdown": ["admin", "implementation"],
+  "sdd.validate_markdown_sync": ["analysis"],
+  "sdd.fix_markdown_sync": ["admin", "implementation"],
   "sdd.update_from_answers": ["mutation", "discovery"],
   "sdd.auto_link_tests": ["implementation", "mutation"],
   "sdd.infer_relationships": ["analysis", "mutation"],
@@ -63,6 +70,7 @@ export const STANDALONE_CATEGORIES: Record<string, IntentCategory[]> = {
 
   // ── Workflow ────────────────────────────────────────────────────
   "sdd.enforce": ["workflow"],
+  "sdd.finalize_baseline": ["workflow", "admin"],
   "sdd.renew_workflow": ["workflow", "admin"],
   "sdd.enforce_rules": ["workflow", "info"],
   "sdd.full_cycle": ["workflow", "implementation"],

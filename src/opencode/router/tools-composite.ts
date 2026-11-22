@@ -992,7 +992,7 @@ export function createEnterpriseTool(): ToolDefinition {
         case "docs": {
           const { generateDocumentation } = await import("../../sdd/documentation/generator.js")
           const params = args.params_json ? JSON.parse(args.params_json) : {}
-          return generateDocumentation(graph, params.format || "api")
+          return generateDocumentation(graph, { type: params.format || params.type || "api" })
         }
         case "onboarding": {
           const { generateOnboardingGuide } = await import("../../sdd/workflows/onboarding.js")

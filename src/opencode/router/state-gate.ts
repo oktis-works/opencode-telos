@@ -26,6 +26,7 @@ const ALWAYS_VISIBLE = new Set([
   // Workflow entry points: exempt from the enforcement policy and required to
   // start a Change in ANY graph state, so they must never be hidden.
   "sdd.enforce",
+  "sdd.finalize_baseline",
   "sdd.renew_workflow",
   "sdd.update_from_answers",
 ])
@@ -208,15 +209,28 @@ export function formatVisibleTools(visibleTools: Set<string> | null): string {
  * be explicit for the agent.
  */
 export const ENFORCEMENT_ORDER_INSTRUCTION = `
-### Mandatory order (enforcement active)
-Without an active Change, graph mutation tools are refused by the hook. Sequence:
-1. \`sdd.enforce\` — classifies the request and creates the Change
-2. update the spec (\`sdd.build_graph\`, \`sdd.graph_mutation\`, \`sdd.update_from_answers\`)
-3. \`sdd.approve_change\` — approves the Change
-4. write code (\`sdd.generate_code\` or Write/Edit)
-5. \`sdd.verify_implementation\` → \`sdd.complete_change\`
+### Mandatory order by project phase
 
-If the window expires mid-task, use \`sdd.renew_workflow\` (or \`/sdd renew\`) to extend the SAME Change and keep the report — \`sdd.enforce\` would create a new Change. Approving a Change without \`affected_files\` is refused because no Write/Edit would be released.
+**bootstrap** (baseline still open)
+1. \`sdd.discover\` → \`sdd.update_from_answers\` / \`sdd.build_graph\`
+2. \`sdd.validate\` and review the generated graph, Markdown and task backlog
+3. \`sdd.finalize_baseline\` (confirm=true) — closes the documentation baseline
+   No Change is created in this phase; \`sdd.enforce\` is refused.
+
+**delivery** (baseline complete)
+1. Link/integrate the task (\`sdd.integrate_tasks\` mark_integrated → dossier)
+2. \`sdd.approve_task\` (or \`sdd.integrate_tasks\` action=approve_task)
+3. Write/Edit only the files declared by the approved task
+4. Verify and mark the task done
+   No Change is required for delivery tasks.
+
+**evolution** (a modification after the baseline)
+1. \`sdd.enforce\` — creates a Change record
+2. update the spec (\`sdd.graph_mutation\`, \`sdd.update_from_answers\`)
+3. approve/execute the linked task; task approval remains the human gate
+4. \`sdd.verify_implementation\` → \`sdd.complete_change\`
+
+If the window expires mid-task, use \`sdd.renew_workflow\` (or \`/sdd renew\`) to extend the SAME Change and keep the report. Approving a Change without \`affected_files\` is refused because no Write/Edit would be released.
 `.trim()
 
 /**

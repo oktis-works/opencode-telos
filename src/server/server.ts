@@ -14,6 +14,7 @@ import {
   handleListTasks,
   handleMarkIntegrated,
   handleOpenChange,
+  handleTaskApproval,
   handleUpdateTask,
 } from "./tasks-api.js"
 import type { SqliteGraphRepository } from "../sdd/persistence/sqlite.js"
@@ -354,6 +355,11 @@ export class SddDashboardServer {
         }
         if (action === "integrated" && req.method === "POST") {
           const result = handleMarkIntegrated(this.projectDir, taskId)
+          return this.jsonResponse(result.body, corsHeaders, result.status)
+        }
+        if ((action === "approve" || action === "reject") && req.method === "POST") {
+          const body = (await this.readJsonBody(req)) ?? {}
+          const result = handleTaskApproval(this.projectDir, taskId, action === "approve", body)
           return this.jsonResponse(result.body, corsHeaders, result.status)
         }
         return this.jsonResponse({ error: "Not found" }, corsHeaders, 404)

@@ -151,19 +151,76 @@ export class MarkdownRepository {
       // LLM requested update - merge intelligently
       body = this.mergeMarkdown(existingBody, node, graph)
     } else {
-      // First creation or no existing body - use template
-      body = this.buildInitialMarkdown(node, graphVersion)
+      // First creation or no existing body - use template + graph data
+      body = this.buildInitialMarkdown(node, graphVersion, graph)
     }
 
     this.write(node, body, graph)
     return body
   }
 
-  mergeMarkdown(existingBody: string, node: AnyNode, graph: KnowledgeGraph): string {
-    /** Merge strategy: preserve sections not mentioned in update request, update only modified sections. */
-    // For now, return existing body - the LLM tool will handle the merge
-    // This is a placeholder for future intelligent merge logic
-    return existingBody
+  /**
+   * Merge generated Markdown with the existing body.
+   *
+   * Manual sections are preserved; automatic sections (Metadata, Relationships,
+   * Implementation Files, History) are refreshed from the graph. A template
+   * section still containing `<!-- TODO` yields to a non-placeholder existing
+   * section, so an LLM-written section is never erased.
+   */
+  mergeMarkdown(
+    existingBody: string,
+    node: AnyNode,
+    graph: KnowledgeGraph,
+    generatedBody?: string,
+  ): string {
+    const generated = generatedBody ?? this.buildInitialMarkdown(node, this.getGraphVersion(graph), graph)
+    const existing = this.splitSections(existingBody)
+    const fresh = this.splitSections(generated)
+    if (!fresh.header) return existingBody
+
+    const output = new Map<string, string>(fresh.sections)
+    for (const [title, content] of existing.sections) {
+      const freshContent = output.get(title)
+      if (freshContent === undefined) {
+        output.set(title, content)
+      } else if (!content.includes("<!-- TODO") && freshContent.includes("<!-- TODO")) {
+        output.set(title, content)
+      }
+    }
+
+    const orderedTitles = [
+      ...fresh.sections.map(([title]) => title),
+      ...existing.sections.map(([title]) => title).filter((title) => !fresh.sections.some(([t]) => t === title)),
+    ]
+    const unique = [...new Set(orderedTitles)]
+    return [fresh.header, ...unique.map((title) => `## ${title}\n\n${(output.get(title) ?? "").trim()}\n`)].join("\n")
+  }
+
+  private splitSections(body: string): { header: string; sections: Array<[string, string]> } {
+    const lines = body.split(/\r?\n/)
+    const header: string[] = []
+    const sections: Array<[string, string]> = []
+    let currentTitle: string | null = null
+    let currentLines: string[] = []
+
+    const flush = () => {
+      if (currentTitle !== null) sections.push([currentTitle, currentLines.join("\n").trim()])
+    }
+
+    for (const line of lines) {
+      const match = /^##\s+(.+?)\s*$/.exec(line)
+      if (match) {
+        flush()
+        currentTitle = match[1]
+        currentLines = []
+      } else if (currentTitle === null) {
+        header.push(line)
+      } else {
+        currentLines.push(line)
+      }
+    }
+    flush()
+    return { header: header.join("\n").trim(), sections }
   }
 
   delete(nodeId: string, graphVersion?: number): void {
@@ -345,7 +402,7 @@ export class MarkdownRepository {
     }
   }
 
-  buildInitialMarkdown(node: AnyNode, graphVersion: number): string {
+  buildInitialMarkdown(node: AnyNode, graphVersion: number, graph?: KnowledgeGraph): string {
     const sections = this.getTemplateSections(node.type)
     let body = `# ${node.type.charAt(0).toUpperCase() + node.type.slice(1)}: ${node.name}\n\n`
 
@@ -353,15 +410,81 @@ export class MarkdownRepository {
       body += `## Overview\n${node.description}\n\n`
     }
 
+    body += `## Metadata\n\n${this.buildMetadataTable(node)}\n\n`
+
     for (const section of sections) {
       body += `## ${section}\n\n<!-- TODO: Add ${section.toLowerCase()} details -->\n\n`
     }
 
-    body += `## Relationships\n\n<!-- Auto-generated from graph -->\n\n`
-    body += `## Implementation Files\n\n<!-- Auto-generated from codegen -->\n\n`
-    body += `## History\n\n| Version | Date | Author | Change |\n|---------|------|--------|--------|\n| ${node.version} | ${node.updated_at.split("T")[0]} | System | Initial creation (graph v${graphVersion}) |\n`
+    body += `## Relationships\n\n${this.buildRelationshipsSection(node, graph)}\n\n`
+    body += `## Implementation Files\n\n${this.buildImplementationFilesSection(node)}\n\n`
+    body += `## History\n\n| Version | Date | Author | Change |\n|---------|------|--------|--------|\n| ${node.version} | ${node.updated_at.split("T")[0]} | System | Updated in graph v${graphVersion} |\n`
 
     return body
+  }
+
+  private buildMetadataTable(node: AnyNode): string {
+    const entries = Object.entries((node.metadata ?? {}) as Record<string, unknown>)
+      .filter(([, value]) => value !== undefined && value !== null && value !== "")
+      .slice(0, 40)
+    if (entries.length === 0) return "_No metadata._"
+
+    const lines = ["| Key | Value |", "|---|---|"]
+    for (const [key, value] of entries) {
+      lines.push(`| \`${key}\` | ${this.renderMetadataValue(value)} |`)
+    }
+    return lines.join("\n")
+  }
+
+  private renderMetadataValue(value: unknown): string {
+    if (Array.isArray(value)) {
+      const items = value.slice(0, 12).map((item) =>
+        typeof item === "object" ? JSON.stringify(item) : String(item),
+      )
+      return items.join(", ") + (value.length > 12 ? ` … (+${value.length - 12})` : "")
+    }
+    if (typeof value === "object") {
+      const json = JSON.stringify(value)
+      return `\`${json.length > 500 ? `${json.slice(0, 500)}…` : json}\``
+    }
+    return String(value).replace(/\|/g, "\\|").replace(/\r?\n/g, " ")
+  }
+
+  private buildRelationshipsSection(node: AnyNode, graph?: KnowledgeGraph): string {
+    if (!graph) return "<!-- Relationship rendering requires the graph context. -->"
+    const relationships = graph.relationships.filter((rel) => rel.from === node.id || rel.to === node.id)
+    if (relationships.length === 0) return "_No relationship._"
+
+    const byId = new Map(graph.nodes.map((candidate) => [candidate.id, candidate]))
+    return relationships
+      .map((rel) => {
+        const otherId = rel.from === node.id ? rel.to : rel.from
+        const other = byId.get(otherId)
+        const otherLabel = other ? `${other.name} (${other.type})` : otherId
+        return rel.from === node.id
+          ? `- \`${node.id}\` --[${rel.type}]--> ${otherLabel}`
+          : `- ${otherLabel} --[${rel.type}]--> \`${node.id}\``
+      })
+      .join("\n")
+  }
+
+  private buildImplementationFilesSection(node: AnyNode): string {
+    const metadata = (node.metadata ?? {}) as Record<string, unknown>
+    const files = [
+      ...(Array.isArray(metadata.files) ? metadata.files : []),
+      ...(Array.isArray(metadata.affected_files) ? metadata.affected_files : []),
+      ...(typeof metadata.path === "string" ? [metadata.path] : []),
+    ].filter((value): value is string => typeof value === "string" && value.length > 0)
+    const tests = [
+      ...(Array.isArray(metadata.tests) ? metadata.tests : []),
+      ...(Array.isArray(metadata.affected_tests) ? metadata.affected_tests : []),
+    ].filter((value): value is string => typeof value === "string" && value.length > 0)
+
+    if (files.length === 0 && tests.length === 0) return "_No implementation file declared._"
+    const lines: string[] = []
+    if (files.length > 0) lines.push("**Files:**", ...files.map((file) => `- \`${file}\``))
+    if (tests.length > 0) lines.push("", "**Tests:**", ...tests.map((file) => `- \`${file}\``))
+    return lines.join("\n")
   }
 
   private getTemplateSections(nodeType: string): string[] {
@@ -478,7 +601,7 @@ export class MarkdownRepository {
         }
       } else {
         // MANDATORY: Create new markdown file with initial template for every node
-        const body = this.buildInitialMarkdown(node, graphVersion)
+        const body = this.buildInitialMarkdown(node, graphVersion, graph)
         this.write(node, body, graph)
         created++
       }

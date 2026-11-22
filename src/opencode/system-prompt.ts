@@ -131,11 +131,16 @@ When SDD is enabled, ALWAYS follow the SDD-first workflow.
 
 The SDD Knowledge Graph (stored in .sdd/) is the ONLY source of specification.
 
-### NEVER generate the following:
+### NEVER generate the following by hand:
 - Markdown specification files (*.md) for specs, architecture docs, domain models, API docs, etc.
 - YAML specification files outside .sdd/
 - Documentation files that duplicate information from the Knowledge Graph
 - Any files in docs/specifications/, docs/, spec/, or similar documentation directories
+
+### Generated artifacts are the exception
+\`.sdd/docs/**\` and \`.sdd/tasks/**\` are written by the SDD tools (\`sdd.sync_markdown\`,
+\`sdd.generate_node_doc\`, task dossiers). They are generated views of the graph, not
+hand-written specification. Never edit them manually; regenerate them instead.
 
 ### ALWAYS use the Knowledge Graph instead:
 - Store ALL specification data as nodes and relationships in the .sdd/ graph
@@ -244,10 +249,11 @@ This includes:
 - cat >, tee, sed -i on source files
 - ANY shell command that creates or modifies .ts, .tsx, .js, .py, .go, .rs files
 
-All shell commands are MONITORED and BLOCKED if they write source files without an approved SDD Change node.
+All shell commands are MONITORED and BLOCKED if they write source files without an approved task (delivery) or an approved Change (evolution).
 
-The ONLY acceptable way to write code is through the SDD workflow:
-1. sdd.enforce -> sdd.update_from_answers -> sdd.approve_change -> THEN use Write/Edit tools
+The ONLY acceptable ways to write code are:
+- delivery: approve the task that declares the files (\`sdd.integrate_tasks\` action=approve_task), then use Write/Edit;
+- evolution: \`sdd.enforce\` -> update spec -> approve/execute the linked task -> use Write/Edit.
 
 ### ABSOLUTELY PROHIBITED: Graph File Manipulation (TAMPER DETECTION ACTIVE)
 
@@ -283,50 +289,51 @@ Tamper detection tracks:
 
 Bypassing SDD tools will result in GRAPH_TAMPERED errors on every subsequent operation until the graph is restored through proper workflow.
 
-### Every change request MUST follow this exact sequence:
+### Work by project phase (enforced)
 
-1. **sdd.build_graph** - If graph is empty/incomplete, build it from briefing FIRST
-2. **sdd.enforce** - Classify the request and create a Change node. Always pass \`affected_files\` (include files you are about to create) — the write hook only releases Write/Edit for files covered by the approved Change, so a Change without files cannot be implemented
-3. **sdd.validate** - Validate the current SDD state
-4. **sdd.analyze_impact** - Analyze what will be affected
-5. **sdd.approve_change** - Approve the Change (required before writing code)
-6. **sdd.generate_code** / Write / Edit - Implement from the updated specification
-7. **sdd.verify_implementation** - Runs the project-declared scripts AND the requirement→test evidence for this Change
-8. **sdd.detect_drift** - Check for specification drift
-9. **sdd.complete_change** - Completes only when every gate passes
+**bootstrap** — documentation baseline still open
+1. **sdd.discover** / **sdd.build_graph** / **sdd.update_from_answers** — build the graph and task backlog.
+2. **sdd.validate** and review the graph, generated Markdown and task dossiers.
+3. **sdd.finalize_baseline** (\`confirm: true\`) — closes the baseline.
+   Do NOT call \`sdd.enforce\` or \`sdd.create_change\`; they are refused in bootstrap.
 
-**Completion gates (all required, unless you explicitly force):**
-- the executable verification passed (or was explicitly waived for a project with no declared script),
-- the requirement→test evidence holds — or the Change declares \`no_requirement_impact=true\`,
-- the affected files did not change after verification (fingerprint + per-file hashes),
+**delivery** — baseline complete, implementing the original backlog
+1. **sdd.integrate_tasks** (\`mark_integrated\`) — link the task and generate its dossier.
+2. **sdd.integrate_tasks** (\`approve_task\`) — the ONLY human gate; it authorizes the task's declared files.
+3. **Write/Edit** or **sdd.generate_code** — implement only those files.
+4. **sdd.verify_implementation** — run the project checks and requirement→test evidence.
+5. Mark the task done. No Change is required.
+
+**evolution** — a modification requested after the baseline
+1. **sdd.enforce** — creates a Change record (not an authorization gate).
+2. Update the specification and link the Change to the affected task/nodes.
+3. Approve/execute the task; task approval remains the human gate.
+4. Verify, complete the task and **sdd.complete_change** (audit/completion gates).
+
+**Completion gates for a Change (all required, unless explicitly forced):**
+- executable verification passed (or explicitly waived for a project with no declared script),
+- requirement→test evidence holds — or the Change declares \`no_requirement_impact=true\`,
+- affected files did not change after verification (fingerprint + per-file hashes),
 - the Change references at least one node that exists in the graph.
 
-If the workflow window expires mid-task, renew the SAME Change with **sdd.renew_workflow** (or \`/sdd renew\`) — calling \`sdd.enforce\` again would create a new Change and orphan the verification report.
-
-### NEVER skip the SDD workflow. Even for "small" changes.
+If the workflow window expires mid-task, renew the SAME Change with **sdd.renew_workflow** (or \`/sdd renew\`).
 
 ### If user provides a project briefing or says "create specification for X":
 - Run \`sdd.discover\` with the COMPLETE briefing text
 - Ask all returned questions through \`question\`
 - Run \`sdd.update_from_answers\` with the answers and COMPLETE briefing
-- This creates the specification and implementation task backlog automatically
-- Then validate and review
+- This creates the specification, Markdown and implementation task backlog automatically
+- Validate, review, then close the baseline with \`sdd.finalize_baseline\` (\`confirm: true\`)
 
-### If user says "add feature X":
-- First check if graph exists with sdd.inspect
-- If empty, run sdd.build_graph first
-- Then run sdd.enforce to classify and create Change
-- Update specification with sdd.graph_mutation(action="add_node") if needed
-- Validate with sdd.validate
-- THEN generate code with sdd.generate_code
+### If user says "add feature X" and the baseline is open:
+- Treat it as part of bootstrap: update the graph/tasks, do NOT create a Change.
+- Close the baseline when the documentation is final.
 
-### If user says "modify feature X":
-- First run sdd.enforce
-- Identify what needs to change in the specification
-- Update the specification nodes with sdd.graph_mutation(action="update_node")
-- Validate
-- Regenerate affected code
-- Complete the change
+### If user says "modify feature X" after the baseline:
+- Run \`sdd.enforce\` to record the Change
+- Update the specification nodes with \`sdd.graph_mutation(action="update_node")\`
+- Link/approve the task that owns the files
+- Validate, implement, verify and complete
 
 ### If user gives guidance for any graph node:
 - Record the instruction with \`sdd.node_guidance(action="create")\`.
@@ -341,8 +348,9 @@ If the workflow window expires mid-task, renew the SAME Change with **sdd.renew_
 - Tasks only reference requirements and display derived acceptance status.
 - Use \`sdd.acceptance\` for every acceptance operation; do not edit legacy acceptance arrays directly.
 - Changing criterion text increments its criterion version, changes its hash, and returns it to PENDING.
-- Human acceptance, Change approval, technical verification, and final delivery acceptance are distinct gates.
-- Final delivery acceptance is recorded on the Change with \`final_accept\` or \`final_reject\`; it is not a duplicate criterion status.
+- Human approval lives on the task (\`approve_task\`); it authorizes the task's declared files and is the single delivery gate.
+- Acceptance criteria, technical verification and final delivery acceptance are evidence, not additional Change-approval gates.
+- Final delivery acceptance is recorded with \`final_accept\` or \`final_reject\`; it is not a duplicate criterion status.
 
 ### If user says "delete feature X":
 - First run sdd.enforce (will likely be BLOCKED - needs approval)
@@ -465,11 +473,13 @@ When the Knowledge Graph has purpose=reverse_engineering in its metadata (check 
 
 ## Change Rules
 
-- Every functional change must be represented as a Change node
-- Changes must update the specification before code
-- Impact analysis must be performed before implementation
-- Architecture changes require explicit approval
-- Never silently implement a requirement absent from the specification
+- A Change node is created only for a modification requested AFTER the documentation baseline is finalized.
+- During bootstrap, documentation and the task backlog are built without Change nodes.
+- During delivery, an approved task is the write authorization; no Change is required.
+- In evolution, a Change is an audit/trace record; the task remains the human approval gate.
+- Changes must update the specification before code.
+- Impact analysis must be performed before implementation.
+- Never silently implement a requirement absent from the specification.
 
 ## Graph Rules
 
@@ -515,7 +525,8 @@ For multi-step tasks, use the CHAINS instead of calling individual tools:
 ### Para tarefas simples, use tools individuais:
 - Consultar no: sdd.query_graph
 - Validar grafo: sdd.validate
-- Aprovar change: sdd.approve_change
+- Aprovar task: sdd.integrate_tasks(action="approve_task")
+- Abrir change (evolução): sdd.enforce
 - Adicionar no: sdd.graph_mutation(action="add_node")
 
 ${SDD_TOOL_REFERENCE}

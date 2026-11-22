@@ -31,16 +31,26 @@ import {
 import {
   TASK_COLUMN_LABELS,
   TASK_COLUMNS,
+  approveTask,
   buildIntegrationBrief,
   createTask as createBoardTask,
   getPendingIntegrationTasks,
+  isTaskApproved,
   isTaskColumn,
   listTasks,
   markTaskIntegrated,
+  rejectTask,
   removeTask as removeBoardTask,
   updateTask as updateBoardTask,
 } from "../sdd/tasks/board.js"
 import { formatOpenChangeResult, openChangeForTask } from "../sdd/tasks/change-bridge.js"
+import { writeTaskDossier, writeTaskDossiers } from "../sdd/tasks/dossier.js"
+import {
+  canCreateChange,
+  describeLifecycle,
+  finalizeBaseline,
+  getProjectLifecycle,
+} from "../sdd/lifecycle/project-phase.js"
 import { computeImpact } from "../sdd/graph/traverse.js"
 import { analyzeBriefing, generateDiscoveryQuestions, updateGraphFromAnswers, formatDiscoverySummary, generatePurposeQuestion } from "../sdd/discovery/briefing.js"
 import { createChange, classifyApprovalLevel, approveChange, getPendingChanges, failChange, getChangeHistory, formatImpactReport, preflightChangeScope, checkSpecEvidence } from "../sdd/changes/manager.js"
@@ -922,6 +932,61 @@ function createAllTools(): Record<string, ToolDefinition> {
       },
     }),
 
+    "sdd.finalize_baseline": tool({
+      description:
+        "Close the documentation baseline and move the project to delivery. " +
+        "After this, approved tasks authorize implementation directly; Change nodes are only created for later modifications (evolution). " +
+        "Pass confirm=true to actually finalize; without it the tool only reports the current lifecycle.",
+      args: {
+        confirm: tool.schema.boolean().optional().describe("Confirm the baseline closure (required to mutate)"),
+        notes: tool.schema.string().optional().describe("Optional baseline notes"),
+      },
+      async execute(args, ctx) {
+        const repo = getRepo(ctx.directory)
+        if (!repo.isInitialized()) return "SDD not initialized. Run sdd.initialize first."
+        const graph = repo.loadGraph()
+        const lifecycle = getProjectLifecycle(graph)
+
+        if (args.confirm !== true) {
+          return [
+            "## Baseline status",
+            "",
+            `- Lifecycle: \`${describeLifecycle(graph)}\``,
+            `- Tasks: ${graph.nodes.filter((node) => node.type === "task").length}`,
+            "",
+            "Nothing changed. To close the baseline and enable task-based delivery, call again with `confirm: true`.",
+          ].join("\n")
+        }
+        if (lifecycle.baseline.status === "COMPLETE") {
+          return `Baseline is already complete (phase: ${lifecycle.phase}).`
+        }
+
+        const result = finalizeBaseline(
+          graph,
+          process.env.USER || process.env.USERNAME || "current",
+          args.notes,
+        )
+        if (!result.finalized) {
+          return `## Baseline NOT finalized\n\n${result.reason ?? "Unknown reason."}`
+        }
+
+        const dossiers = writeTaskDossiers(ctx.directory, graph)
+        repo.saveGraph(graph)
+        invalidateCacheForMutation(ctx.directory, ["project", "task"], [])
+        return [
+          "## Baseline finalized ✅",
+          "",
+          `- Lifecycle: \`${describeLifecycle(graph)}\``,
+          `- Task dossiers generated: ${dossiers.length}`,
+          "",
+          "Next steps:",
+          "1. Approve a task (`sdd.integrate_tasks` action=`approve_task`).",
+          "2. Implement only the files declared by that task.",
+          "3. For a later modification, call `sdd.enforce` — that creates a Change record in evolution.",
+        ].join("\n")
+      },
+    }),
+
     "sdd.create_change": tool({
       description:
         "Create a Change node in the SDD Knowledge Graph. Represents a modification " +
@@ -942,6 +1007,9 @@ function createAllTools(): Record<string, ToolDefinition> {
         const repo = getRepo(ctx.directory)
         if (!repo.isInitialized()) return "SDD not initialized."
         const graph = repo.loadGraph()
+
+        const gate = canCreateChange(graph)
+        if (!gate.allowed) return gate.message || gate.reason || "Change not allowed during bootstrap."
 
         const affectedIds = args.affected_node_ids
           ? args.affected_node_ids.split(",").map((s) => s.trim()).filter(Boolean)
@@ -1919,37 +1987,28 @@ function createAllTools(): Record<string, ToolDefinition> {
         if (!repo.isInitialized()) return "SDD not initialized. Run sdd.initialize first."
         const graph = repo.loadGraph()
 
-        // ENFORCEMENT: require approved Change before generating code
+        // Authorization: an approved task is enough for delivery. A Change is
+        // only needed for evolution (or for legacy projects).
         const { getWorkflowState } = await import("../sdd/enforcement/workflow-tracker.js")
         const wfState = getWorkflowState(workflowScope(ctx.directory, ctx.sessionID))
-        if (!wfState.enforced) {
-          return [
-            "## SDD BLOCKED: No workflow active",
-            "",
-            "Cannot generate code without an active SDD workflow.",
-            "",
-            "1. Run sdd.enforce to classify the change and create a Change node",
-            "2. Update the specification",
-            "3. Run sdd.approve_change",
-            "4. THEN run sdd.generate_code",
-          ].join("\n")
-        }
-
-        // ENFORCEMENT: verify approved Change exists in graph
+        const approvedTasks = graph.nodes.filter(
+          (n) => n.type === "task" && isTaskApproved(n),
+        )
         const approvedChanges = graph.nodes.filter(
           (n) => n.type === "change" && n.status === "APPROVED",
         )
-        if (approvedChanges.length === 0 && !args.force) {
+        if (approvedTasks.length === 0 && approvedChanges.length === 0 && !args.force) {
+          const lifecycle = getProjectLifecycle(graph)
           return [
-            "## SDD BLOCKED: No approved Change node",
+            "## SDD BLOCKED: No approved task or Change",
             "",
-            "Cannot generate code without an approved Change node in the graph.",
+            `Lifecycle: \`${describeLifecycle(graph)}\``,
             "",
-            "1. Run sdd.enforce to create a Change node",
-            "2. Run sdd.approve_change to approve it",
-            "3. THEN run sdd.generate_code",
+            lifecycle.phase === "bootstrap"
+              ? "The baseline is still open. Finish the documentation/task backlog and call `sdd.finalize_baseline` (confirm=true)."
+              : "Approve the task that owns these files (`sdd.integrate_tasks` action=`approve_task`), or approve a Change for an evolution request.",
             "",
-            "Or use force=true to override (not recommended).",
+            "The write gate releases only the files declared by the approved task/Change.",
           ].join("\n")
         }
 
@@ -2055,6 +2114,11 @@ function createAllTools(): Record<string, ToolDefinition> {
         }
 
         const graph = repo.loadGraph()
+
+        const changeGate = canCreateChange(graph)
+        if (!changeGate.allowed && graph.metadata.purpose !== "reverse_engineering") {
+          return changeGate.message || changeGate.reason || "Change not allowed during bootstrap."
+        }
 
         if (graph.metadata.purpose === "reverse_engineering") {
           const blockers = graph.nodes.filter((node) =>
@@ -2186,6 +2250,9 @@ function createAllTools(): Record<string, ToolDefinition> {
         }
 
         let graph = repo.loadGraph()
+        const changeGate = canCreateChange(graph)
+        if (!changeGate.allowed) return changeGate.message || changeGate.reason || "Change not allowed during bootstrap."
+
         const lines: string[] = []
         const request = classifyChangeRequest(args.request)
 
@@ -2863,6 +2930,10 @@ function createAllTools(): Record<string, ToolDefinition> {
         // Build graph from analysis using existing graph builder
         const { buildGraphFromAnalysis } = await import("../sdd/discovery/graph-builder.js")
         buildGraphFromAnalysis(graph, result.analysis)
+
+        // A reverse-engineered graph already represents the existing baseline,
+        // so later implementation work is evolution and may open Changes.
+        finalizeBaseline(graph, "reverse_engineer", "Baseline generated from the existing codebase")
 
         // Brownfield discoveries are first-class graph records. Documentation
         // keeps them open and creates remediation tasks; reverse engineering
@@ -3637,10 +3708,10 @@ function createAllTools(): Record<string, ToolDefinition> {
         "Used by the dashboard workflow so a manual task becomes part of the specification and can be implemented.",
       args: {
         action: tool.schema
-          .enum(["list", "create", "update", "remove", "mark_integrated", "open_change", "approve_change"])
+          .enum(["list", "create", "update", "remove", "mark_integrated", "approve_task", "reject_task", "dossier", "open_change", "approve_change"])
           .optional()
           .describe(
-            "Operation: list (default) | create | update | remove | mark_integrated | open_change | approve_change",
+            "Operation: list (default) | create | update | remove | mark_integrated | approve_task | reject_task | dossier | open_change | approve_change",
           ),
         task_id: tool.schema.string().optional().describe("ID da task (update/remove/mark_integrated)"),
         name: tool.schema.string().optional().describe("Task name (create/update)"),
@@ -3750,33 +3821,79 @@ function createAllTools(): Record<string, ToolDefinition> {
         if (action === "mark_integrated") {
           if (!args.task_id) return "`task_id` is required to mark a task as integrated."
           const task = markTaskIntegrated(graph, args.task_id)
-
-          // An integrated task opens the SDD Change that authorizes its code.
-          const change = openChangeForTask(graph, task.id, {
-            noRequirementImpact: args.no_requirement_impact,
-          })
+          const dossier = writeTaskDossier(ctx.directory, graph, task.id)
           repo.saveGraph(graph)
-          invalidateCacheForMutation(ctx.directory, ["task", "change"], ["implements", "tested_by", "affects"])
+          invalidateCacheForMutation(ctx.directory, ["task"], ["implements", "tested_by", "affects"])
           return [
             `Task **${task.id}** marked as integrated.`,
             "",
-            formatOpenChangeResult(change),
+            "No Change was created: integration is specification work.",
+            `Dossier: \`${dossier.files["README.md"]}\``,
+            "",
+            `Next: approve the task with \`sdd.integrate_tasks\` (action="approve_task", task_id="${task.id}") to authorize its files.`,
           ].join("\n")
+        }
+
+        if (action === "approve_task" || action === "reject_task") {
+          if (!args.task_id) return "`task_id` is required to approve/reject a task."
+          try {
+            const actor = process.env.USER || process.env.USERNAME || "current"
+            const task = action === "approve_task"
+              ? approveTask(graph, args.task_id, actor, args.no_requirement_impact ? "approved via integrate_tasks" : undefined)
+              : rejectTask(graph, args.task_id, actor)
+            const dossier = writeTaskDossier(ctx.directory, graph, task.id)
+            repo.saveGraph(graph)
+            invalidateCacheForMutation(ctx.directory, ["task"], [])
+            return [
+              `Task **${task.id}** ${action === "approve_task" ? "APPROVED" : "REJECTED"}.`,
+              "",
+              `Dossier: \`${dossier.files["README.md"]}\``,
+              action === "approve_task"
+                ? "Write/Edit and shell writes are now authorized for the files declared by this task."
+                : "The task remains blocked until the scope is revised and approved again.",
+            ].join("\n")
+          } catch (error) {
+            return `Error: ${error instanceof Error ? error.message : String(error)}`
+          }
+        }
+
+        if (action === "dossier") {
+          if (!args.task_id) {
+            const dossiers = writeTaskDossiers(ctx.directory, graph)
+            repo.saveGraph(graph)
+            return `Generated ${dossiers.length} task dossier(s) under \`.sdd/tasks/\`.`
+          }
+          try {
+            const dossier = writeTaskDossier(ctx.directory, graph, args.task_id)
+            repo.saveGraph(graph)
+            return [
+              `Dossier for **${dossier.task_id}** written to \`${dossier.directory}\`.`,
+              `- README: ${dossier.files["README.md"]}`,
+              `- Traceability: ${dossier.files["traceability.md"]}`,
+              `- Diagrams: flow.mmd, data-model.mmd, sequence.mmd, architecture.mmd`,
+            ].join("\n")
+          } catch (error) {
+            return `Error: ${error instanceof Error ? error.message : String(error)}`
+          }
         }
 
         if (action === "open_change" || action === "approve_change") {
           if (!args.task_id) return "`task_id` is required to open the SDD Change of a task."
-          const change = openChangeForTask(graph, args.task_id, {
-            files: splitBy(args.files, /,/),
-            approve: action === "approve_change",
-            noRequirementImpact: args.no_requirement_impact,
-          })
-          repo.saveGraph(graph)
-          invalidateCacheForMutation(ctx.directory, ["task", "change"], ["affects"])
-          return formatOpenChangeResult(change)
+          try {
+            const change = openChangeForTask(graph, args.task_id, {
+              files: splitBy(args.files, /,/),
+              approve: action === "approve_change",
+              noRequirementImpact: args.no_requirement_impact,
+            })
+            repo.saveGraph(graph)
+            invalidateCacheForMutation(ctx.directory, ["task", "change"], ["affects"])
+            return formatOpenChangeResult(change)
+          } catch (error) {
+            return `## Change NOT created\n\n${error instanceof Error ? error.message : String(error)}\n\nBootstrap projects use task approval; Change nodes are an evolution artifact.`
+          }
         }
 
-        return `Unknown action \`${action}\`. Use list, create, update, remove, mark_integrated, open_change or approve_change.`
+        return `Unknown action \`${action}\`. Use list, create, update, remove, mark_integrated, approve_task, reject_task, dossier, open_change or approve_change.`
       },
     }),
 
@@ -3822,8 +3939,12 @@ function createAllTools(): Record<string, ToolDefinition> {
         // Generate markdown using template
         const markdown = generateMarkdownFromTemplate(node, context, template)
 
-        // Write markdown file (mandatory, versioned)
-        mdRepo.writeMandatory(node, graph, existingBody)
+        // Write the generated markdown (previously discarded) and preserve
+        // manual sections that are not regenerated automatically.
+        const body = existingBody
+          ? mdRepo.mergeMarkdown(existingBody, node, graph, markdown)
+          : markdown
+        mdRepo.write(node, body, graph)
 
         // Update node.md_path if not set
         if (!node.md_path) {
@@ -3915,8 +4036,11 @@ function createAllTools(): Record<string, ToolDefinition> {
         }
 
         const result = mdRepo.syncFromGraph(graph)
+        const dossiers = writeTaskDossiers(ctx.directory, graph)
+        if (dossiers.length > 0) repo.saveGraph(graph)
 
         return `Markdown sync complete (Graph v${graphVersion}):
+- Task dossiers: ${dossiers.length}
 - Created: ${result.created}
 - Updated: ${result.updated}
 - Skipped: ${result.skipped}

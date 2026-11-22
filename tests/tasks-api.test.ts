@@ -556,8 +556,9 @@ describe("sdd.integrate_tasks tool", () => {
         ctx,
       )) as string
       expect(marked).toContain("marked as integrated")
-      // Integrating opens the SDD Change that authorizes the code.
-      expect(marked).toContain("Change CHG-001")
+      // Integration is specification work: it creates the dossier, not a Change.
+      expect(marked).toContain("No Change was created")
+      expect(marked).toContain("README.md")
 
       const after = (await (tools["sdd.integrate_tasks"] as any).execute({ action: "list" }, ctx)) as string
       expect(after).toContain("SDD Tasks (1)")

@@ -41,6 +41,8 @@ export const KANBAN_STYLE = `
     .kbadge.integrated { border-color: #238636; color: #3fb950; }
     .kbadge.change-draft { border-color: #9e6a03; color: #d29922; }
     .kbadge.change-approved { border-color: #1f6feb; color: #58a6ff; }
+    .kbadge.approved { border-color: #238636; color: #3fb950; }
+    .kbadge.rejected { border-color: #da3633; color: #f85149; }
     .kchange { font-size: 12px; color: #8b949e; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .kempty { color: #484f58; font-size: 11px; text-align: center; padding: 12px 0; }
     .kanban-new { margin-bottom: 14px; }
@@ -119,7 +121,9 @@ export const KANBAN_MODAL_HTML = `
       <div class="modal-actions">
         <button class="btn primary" id="task-save">Save</button>
         <button class="btn" id="task-integrate" style="display:none">Integrate with AI</button>
-        <button class="btn" id="task-change" style="display:none">Open SDD Change</button>
+        <button class="btn primary" id="task-approve" style="display:none">Approve task</button>
+        <button class="btn danger" id="task-reject" style="display:none">Reject</button>
+        <button class="btn" id="task-change" style="display:none">Open SDD Change (evolution)</button>
         <div class="spacer"></div>
         <button class="btn danger" id="task-delete" style="display:none">Delete</button>
         <button class="btn" id="task-cancel">Cancel</button>
@@ -337,6 +341,9 @@ export const KANBAN_SCRIPT = `
         html += '<div class="kcard-meta">';
         html += '<span class="kbadge" style="border-color:' + ({ critical: '#da3633', high: '#d29922', medium: '#8b949e', low: '#484f58' }[pri] || '#8b949e') + ';color:' + ({ critical: '#f85149', high: '#d29922', medium: '#8b949e', low: '#484f58' }[pri] || '#8b949e') + '">' + escapeHtml(pri) + '</span>';
         html += '<span class="kbadge ' + escapeHtml(integration) + '">' + escapeHtml(integration) + '</span>';
+        var approval = (meta.approval && meta.approval.status) || "PENDING";
+        html += '<span class="kbadge ' + (approval === "APPROVED" ? "approved" : approval === "REJECTED" ? "rejected" : "") + '">' +
+          escapeHtml(approval.toLowerCase()) + '</span>';
         if (meta.change_id) {
           var changeDraft = !meta.change_status || meta.change_status === "DRAFT" || meta.change_status === "PROPOSED";
           html += '<span class="kbadge ' + (changeDraft ? "change-draft" : "change-approved") + '">' +
@@ -454,6 +461,8 @@ export const KANBAN_SCRIPT = `
     el("task-column").value = task ? columnForStatus(task.status) : "backlog";
     el("task-link").value = "";
     el("task-integrate").style.display = task ? "" : "none";
+    el("task-approve").style.display = task ? "" : "none";
+    el("task-reject").style.display = task ? "" : "none";
     el("task-delete").style.display = task ? "" : "none";
     updateChangeUi(task);
     setStatus("", null);
@@ -548,6 +557,23 @@ export const KANBAN_SCRIPT = `
       .catch(function (e) { setStatus("Failed: " + e, "error"); });
   }
 
+  function approveCurrentTask(approve) {
+    var id = el("task-id").value;
+    if (!id) return;
+    setStatus(approve ? "Approving task..." : "Rejecting task...", null);
+    api("POST", "/api/tasks/" + encodeURIComponent(id) + (approve ? "/approve" : "/reject"), {})
+      .then(function (res) {
+        if (!res.ok) {
+          setStatus((res.data && res.data.error) || ("Error " + res.status), "error");
+          return;
+        }
+        setStatus(approve ? "Task approved. Declared files are writable." : "Task rejected.", "ok");
+        if (typeof loadGraph === "function") loadGraph();
+        setTimeout(closeTaskModal, 600);
+      })
+      .catch(function (e) { setStatus("Failed: " + e, "error"); });
+  }
+
   function integrateTask() {
     var id = el("task-id").value;
     if (!id) return;
@@ -597,6 +623,8 @@ export const KANBAN_SCRIPT = `
     var cancel = el("task-cancel");
     var del = el("task-delete");
     var integrate = el("task-integrate");
+    var approve = el("task-approve");
+    var reject = el("task-reject");
     var change = el("task-change");
     var add = el("kanban-add");
     if (add) add.addEventListener("click", function () { openTaskModal(null); });
@@ -604,6 +632,8 @@ export const KANBAN_SCRIPT = `
     if (cancel) cancel.addEventListener("click", closeTaskModal);
     if (del) del.addEventListener("click", deleteTask);
     if (integrate) integrate.addEventListener("click", integrateTask);
+    if (approve) approve.addEventListener("click", function () { approveCurrentTask(true); });
+    if (reject) reject.addEventListener("click", function () { approveCurrentTask(false); });
     if (change) change.addEventListener("click", openChange);
     var backdrop = el("task-modal");
     if (backdrop) backdrop.addEventListener("click", function (e) { if (e.target === backdrop) closeTaskModal(); });

@@ -24,7 +24,7 @@ import { hasPendingMigrations } from "../sdd/migrations/index.js"
 import { graphFingerprint, sourceFingerprint } from "../sdd/cache/fingerprint.js"
 import { sddDebug } from "../sdd/log.js"
 import { projectPath } from "../sdd/security/paths.js"
-import { getPendingIntegrationTasks } from "../sdd/tasks/board.js"
+import { findApprovedTaskForFile, getPendingIntegrationTasks, taskApproval, taskCoversFile } from "../sdd/tasks/board.js"
 import { getTasksAwaitingChangeApproval } from "../sdd/tasks/change-bridge.js"
 import { setDashboardSessionID } from "../server/dashboard-context.js"
 import { finishExecution, findLatestExecutionByCall, startExecution } from "../sdd/execution/ledger.js"
@@ -394,6 +394,25 @@ export function enforceToolExecution(
           ].join("\n")
         }
 
+        // Delivery authorization: an approved task covering every detected file.
+        const taskCandidates = detectedFiles
+          .map((file) => findApprovedTaskForFile(graph, file))
+          .filter((task): task is NonNullable<typeof task> => Boolean(task))
+        const taskAuthorized = taskCandidates.find((task) =>
+          detectedFiles.every((file) => taskCoversFile(task, file)),
+        )
+        if (taskAuthorized) {
+          addAuditEntry(
+            projectDir,
+            process.env.USER || "current",
+            "shell_command",
+            detectedFiles.join(", "),
+            "allowed",
+            `Approved task: ${taskAuthorized.id}`,
+          )
+          return
+        }
+
         // Check for approved Change node covering these files
         const approvedChanges = getPendingChanges(graph).filter((c) => {
           if (c.status !== "APPROVED") return false
@@ -561,7 +580,23 @@ export function enforceToolExecution(
       ].join("\n")
     }
 
-    // Find an approved Change node that covers this file
+    // Delivery authorization: a single approved task covers this file.
+    // This path does not need a Change and does not depend on the workflow
+    // window — the human approval is the task itself.
+    const approvedTask = findApprovedTaskForFile(graph, filePath)
+    if (approvedTask) {
+      addAuditEntry(
+        projectDir,
+        process.env.USER || "current",
+        "write_file",
+        filePath,
+        "allowed",
+        `Approved task: ${approvedTask.id}`,
+      )
+      return
+    }
+
+    // Legacy/evolution: an approved Change still authorizes its declared files.
     const approvedChanges = getPendingChanges(graph).filter((c) => {
       if (c.status !== "APPROVED") return false
       const files = c.metadata.affected_files || []
@@ -780,20 +815,26 @@ export async function buildSystemPromptSections(
           `## SDD Task Board: ${pendingTasks.length} task(s) pending AI integration`,
           'Run `sdd.integrate_tasks` (action="list") to get the integration plan, link each task',
           "(implements / tested_by / depends_on) and finish with action=\"mark_integrated\".",
-          "An integrated task opens its SDD Change automatically — that Change is what authorizes the code.",
+          "Integration generates the task dossier; it does NOT open a Change.",
+          'Approve the task with `sdd.integrate_tasks` (action="approve_task") — that approval authorizes its declared files.',
         ].join("\n"))
       }
 
-      // Integrated tasks whose Change is still a draft: no Write/Edit is
-      // allowed until the Change is approved (that is the write gate).
-      const awaitingApproval = getTasksAwaitingChangeApproval(graph)
-      if (awaitingApproval.length > 0) {
+      // Integrated tasks still waiting for the human approval that releases
+      // their files. No Change is involved in delivery.
+      const awaitingTaskApproval = graph.nodes.filter(
+        (node) =>
+          node.type === "task" &&
+          taskApproval(node).status === "PENDING" &&
+          (node.metadata as Record<string, unknown>).integration_status === "integrated",
+      )
+      if (awaitingTaskApproval.length > 0) {
         sections.push([
-          `## SDD Task Board: ${awaitingApproval.length} task(s) with a Change awaiting approval`,
-          ...awaitingApproval
+          `## SDD Task Board: ${awaitingTaskApproval.length} integrated task(s) awaiting approval`,
+          ...awaitingTaskApproval
             .slice(0, 5)
-            .map(({ task, change }) => `- ${task.id}: ${task.name} → ${change.id} (${change.metadata.approval_level})`),
-          'Approve it with `sdd.integrate_tasks` (action="approve_change", task_id="...") and then implement the matching code.',
+            .map((node) => `- ${node.id}: ${node.name}`),
+          'Approve with `sdd.integrate_tasks` (action="approve_task", task_id="...") to authorize the declared files.',
         ].join("\n"))
       }
     } catch {

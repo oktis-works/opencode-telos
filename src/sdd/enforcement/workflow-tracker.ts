@@ -229,6 +229,7 @@ export const WORKFLOW_EXEMPT_TOOLS = new Set([
   "sdd.handle_mcp_tool",
   // Workflow entry points (start the workflow)
   "sdd.enforce",
+  "sdd.finalize_baseline",
   "sdd.enforce_rules",
   "sdd.discover",
   "sdd.update_from_answers",
@@ -256,6 +257,14 @@ export const WORKFLOW_EXEMPT_TOOLS = new Set([
   "sdd.start_dashboard",
   // Graph build
   "sdd.build_graph",
+  // Markdown artifacts are generated views of the graph, not graph mutations.
+  "sdd.generate_node_doc",
+  "sdd.read_node_doc",
+  "sdd.read_node_doc_history",
+  "sdd.sync_markdown",
+  "sdd.validate_markdown_sync",
+  "sdd.fix_markdown_sync",
+  "sdd.create_node_with_links",
   // Operational and composite tools. Composite tools enforce their own
   // action-level rules; the hook must not reject the composite container
   // before its dispatcher can inspect the requested action.
@@ -349,7 +358,7 @@ const COMPOSITE_MUTATING_ACTIONS: Record<string, ReadonlySet<string>> = {
   // Standalone tools with a mixed read/write action set (isenta o container,
   // but requires an active workflow for mutating actions).
   "sdd.milestone": new Set(["create", "add", "remove", "assign", "close"]),
-  "sdd.integrate_tasks": new Set(["create", "update", "remove", "mark_integrated", "open_change", "approve_change"]),
+  "sdd.integrate_tasks": new Set(["create", "update", "remove", "mark_integrated", "approve_task", "reject_task", "dossier", "open_change", "approve_change"]),
 }
 
 /**
