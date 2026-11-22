@@ -159,12 +159,17 @@ export function handleCreateTask(projectDir: string, raw: unknown): TasksApiResu
       origin: "dashboard",
     })
 
+    const dossier = writeTaskDossier(projectDir, graph, task.id)
     repo.saveGraph(graph)
 
     const integration = taskIntegrationTrigger(task.id, task.name, projectDir)
     return {
       status: 201,
-      body: { task: { id: task.id, name: task.name, status: task.status }, integration },
+      body: {
+        task: { id: task.id, name: task.name, status: task.status },
+        dossier: dossier.files["README.md"],
+        integration,
+      },
     }
   } catch (error) {
     sddDebug("tasks-api", `create failed: ${String(error)}`)
@@ -212,6 +217,7 @@ export function handleUpdateTask(projectDir: string, id: string, raw: unknown): 
       expected_version: data.expected_version,
     })
 
+    const dossier = writeTaskDossier(projectDir, graph, task.id)
     repo.saveGraph(graph)
 
     const integration = contentChanged
@@ -220,7 +226,11 @@ export function handleUpdateTask(projectDir: string, id: string, raw: unknown): 
 
     return {
       status: 200,
-      body: { task: { id: task.id, name: task.name, status: task.status }, integration },
+      body: {
+        task: { id: task.id, name: task.name, status: task.status },
+        dossier: dossier.files["README.md"],
+        integration,
+      },
     }
   } catch (error) {
     sddDebug("tasks-api", `update failed: ${String(error)}`)

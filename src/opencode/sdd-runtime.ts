@@ -25,6 +25,7 @@ import { graphFingerprint, sourceFingerprint } from "../sdd/cache/fingerprint.js
 import { sddDebug } from "../sdd/log.js"
 import { projectPath } from "../sdd/security/paths.js"
 import { findApprovedTaskForFile, getPendingIntegrationTasks, taskApproval, taskCoversFile } from "../sdd/tasks/board.js"
+import { getProjectLifecycle } from "../sdd/lifecycle/project-phase.js"
 import { getTasksAwaitingChangeApproval } from "../sdd/tasks/change-bridge.js"
 import { setDashboardSessionID } from "../server/dashboard-context.js"
 import { finishExecution, findLatestExecutionByCall, startExecution } from "../sdd/execution/ledger.js"
@@ -801,9 +802,11 @@ export async function buildSystemPromptSections(
         sections.push(valLines.join("\n"))
       }
 
-      // Inject pending changes summary
+      // Inject pending changes summary. Bootstrap is spec-only: it must not
+      // announce Change work, otherwise the agent tries to open one.
+      const lifecycle = getProjectLifecycle(graph)
       const pending = getPendingChanges(graph)
-      if (pending.length > 0) {
+      if (lifecycle.phase !== "bootstrap" && pending.length > 0) {
         sections.push(`## Pending Changes: ${pending.length} change(s) awaiting action`)
       }
 

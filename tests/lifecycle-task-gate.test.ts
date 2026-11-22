@@ -11,9 +11,11 @@ import {
   createTask,
   findApprovedTaskForFile,
   taskApproval,
+  updateTask,
 } from "../src/sdd/tasks/board.js"
 import { writeTaskDossier } from "../src/sdd/tasks/dossier.js"
 import { createRuntimeState, enforceToolExecution } from "../src/opencode/sdd-runtime.js"
+import { createGraphMutationTool } from "../src/opencode/router/tools-composite.js"
 import { setRole } from "../src/sdd/permissions/access.js"
 
 function setup() {
@@ -149,6 +151,70 @@ describe("task as the single approval gate", () => {
     try {
       const task = createTask(graph, { name: "No scope", link_to: "FEAT-1" })
       expect(() => approveTask(graph, task.id, "test")).toThrow(/no files/i)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("changing the scope invalidates approval and metadata cannot self-approve", () => {
+    const { dir, graph } = setup()
+    try {
+      const task = createTask(graph, {
+        name: "Implement checkout",
+        files: ["src/checkout.ts"],
+        link_to: "FEAT-1",
+      })
+      approveTask(graph, task.id, "test")
+      expect(findApprovedTaskForFile(graph, "src/checkout.ts")?.id).toBe(task.id)
+
+      expect(() =>
+        updateTask(graph, task.id, { metadata: { approval: { status: "APPROVED" } } }),
+      ).toThrow(/approval/i)
+
+      const updated = updateTask(graph, task.id, {
+        metadata: { files: ["src/other.ts"] },
+      })
+      expect(taskApproval(updated).status).toBe("PENDING")
+      expect(findApprovedTaskForFile(graph, "src/checkout.ts")).toBeUndefined()
+      expect(findApprovedTaskForFile(graph, "src/other.ts")).toBeUndefined()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  test("graph mutation cannot self-approve and invalidates a changed file scope", async () => {
+    const { dir, repo, graph } = setup()
+    try {
+      const actor = process.env.USER || "current"
+      setRole(dir, actor, "admin")
+      const task = createTask(graph, {
+        name: "Implement checkout",
+        files: ["src/checkout.ts"],
+        link_to: "FEAT-1",
+      })
+      approveTask(graph, task.id, actor)
+      repo.saveGraph(graph)
+
+      const mutation = createGraphMutationTool()
+      const ctx = { directory: dir, sessionID: "ses_mutation" }
+      const selfApprove = await mutation.execute({
+        action: "update_node",
+        node_id: task.id,
+        updates_json: JSON.stringify({ metadata: { approval: { status: "APPROVED" } } }),
+      }, ctx) as string
+      expect(selfApprove).toContain("cannot be changed")
+
+      const scopeChange = await mutation.execute({
+        action: "update_node",
+        node_id: task.id,
+        updates_json: JSON.stringify({ metadata: { files: ["src/other.ts"] } }),
+      }, ctx) as string
+      expect(scopeChange).toContain("updated")
+
+      const reloaded = new YamlGraphRepository(dir).loadGraph()
+      const updated = reloaded.nodes.find((node) => node.id === task.id) as never
+      expect(taskApproval(updated).status).toBe("PENDING")
+      expect(findApprovedTaskForFile(reloaded, "src/checkout.ts")).toBeUndefined()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

@@ -607,13 +607,23 @@ export function updateTask(graph: KnowledgeGraph, id: string, input: UpdateTaskI
   if (input.description !== undefined) updates.description = input.description
 
   const metadata: Record<string, unknown> = { ...(task.metadata as Record<string, unknown>) }
-  if (input.metadata) Object.assign(metadata, input.metadata)
-  if (input.goal !== undefined) metadata.goal = input.goal
   const previousFiles = JSON.stringify(metadata.files ?? [])
+  if (input.metadata) {
+    // Approval is the human gate, not a generic metadata field. Allowing it
+    // through `metadata` would let a board/API update mark itself approved.
+    if ("approval" in input.metadata || "approved_files" in input.metadata) {
+      throw new Error(
+        "Task approval cannot be changed through metadata; use approveTask/rejectTask.",
+      )
+    }
+    Object.assign(metadata, input.metadata)
+  }
+  if (input.goal !== undefined) metadata.goal = input.goal
   if (input.files !== undefined) metadata.files = input.files
   // Changing the scope invalidates a previous approval: the human approved a
-  // different set of files.
-  if (input.files !== undefined && JSON.stringify(input.files) !== previousFiles) {
+  // different set of files. This also covers updates that change `files`
+  // through the generic metadata bag.
+  if (JSON.stringify(metadata.files ?? []) !== previousFiles) {
     metadata.approval = { status: "PENDING" }
     delete metadata.approved_files
   }

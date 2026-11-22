@@ -1247,7 +1247,8 @@ function createAllTools(): Record<string, ToolDefinition> {
           const { buildGraphFromAnalysis } = await import("../sdd/discovery/graph-builder.js")
           const enrichedAnalysis = analyzeBriefingDeep(enrichedBriefing)
           const buildResult = buildGraphFromAnalysis(graph, enrichedAnalysis)
-          buildSummary = `\n${buildResult.summary}\n\n${formatDeepAnalysis(enrichedAnalysis)}`
+          const dossiers = writeTaskDossiers(ctx.directory, graph)
+          buildSummary = `\n${buildResult.summary}\n\n${formatDeepAnalysis(enrichedAnalysis)}\n\nTask dossiers: ${dossiers.length}`
           discoveryBriefings.delete(ctx.directory)
         }
 
@@ -3325,6 +3326,7 @@ function createAllTools(): Record<string, ToolDefinition> {
         }
 
         const buildResult = buildGraphFromAnalysis(graph, analysis)
+        const dossiers = writeTaskDossiers(ctx.directory, graph)
 
         // Save the graph
         repo.saveGraph(graph)
@@ -3341,6 +3343,7 @@ function createAllTools(): Record<string, ToolDefinition> {
           "",
           "### What happened",
           "All specification data has been stored in the Knowledge Graph (.sdd/).",
+          `Task dossiers generated: ${dossiers.length}`,
           "Do NOT create markdown files for this specification.",
           "Use sdd.query_graph, sdd.inspect, and sdd.get_context to read the specification.",
         ]
@@ -3788,9 +3791,13 @@ function createAllTools(): Record<string, ToolDefinition> {
             origin: "agent",
             integration_status: "manual",
           })
+          const dossier = writeTaskDossier(ctx.directory, graph, task.id)
           repo.saveGraph(graph)
           invalidateCacheForMutation(ctx.directory, ["task"], ["contains", "implements"])
-          return `Task created: **${task.id}** (column: ${column || "backlog"})`
+          return [
+            `Task created: **${task.id}** (column: ${column || "backlog"})`,
+            `Dossier: \`${dossier.files["README.md"]}\``,
+          ].join("\n")
         }
 
         if (action === "update") {
@@ -3805,9 +3812,13 @@ function createAllTools(): Record<string, ToolDefinition> {
             column,
             status: args.status as never,
           })
+          const dossier = writeTaskDossier(ctx.directory, graph, task.id)
           repo.saveGraph(graph)
           invalidateCacheForMutation(ctx.directory, ["task"], [])
-          return `Task updated: **${task.id}** (${task.status})`
+          return [
+            `Task updated: **${task.id}** (${task.status})`,
+            `Dossier: \`${dossier.files["README.md"]}\``,
+          ].join("\n")
         }
 
         if (action === "remove") {

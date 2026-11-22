@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, mkdirSync, rmSync } from "fs"
+import { existsSync, mkdtempSync, mkdirSync, rmSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 import { createGraph, addNode } from "../src/sdd/graph/engine.js"
@@ -328,6 +328,7 @@ describe("dashboard task API", () => {
     const repo = createRepository(dir)
     const graph = repo.loadGraph()
     expect(graph.nodes.some((n) => n.id === "tasks-test-TASK-001")).toBe(true)
+    expect(existsSync(join(dir, ".sdd", "tasks", "tasks-test-TASK-001", "README.md"))).toBe(true)
   })
 
   test("POST /api/tasks rejects invalid payloads", async () => {
@@ -367,6 +368,8 @@ describe("dashboard task API", () => {
       body: JSON.stringify({ column: "done" }),
     })
     expect(res.status).toBe(200)
+    const body = (await res.json()) as { dossier: string }
+    expect(body.dossier).toContain(".sdd/tasks/tasks-test-TASK-001/README.md")
 
     const list = await fetch(`${base}/api/tasks`).then((r) => r.json())
     const task = (list as { tasks: Array<{ column: string; status: string }> }).tasks[0]
@@ -601,6 +604,15 @@ describe("sdd.integrate_tasks tool", () => {
         ctx,
       )) as string
       expect(created).toContain("tasks-test-TASK-001")
+      expect(created).toContain("README.md")
+      expect(existsSync(join(dir, ".sdd", "tasks", "tasks-test-TASK-001", "README.md"))).toBe(true)
+
+      const updated = (await (tools["sdd.integrate_tasks"] as any).execute(
+        { action: "update", task_id: "tasks-test-TASK-001", goal: "Updated goal" },
+        ctx,
+      )) as string
+      expect(updated).toContain("Task updated")
+      expect(updated).toContain("README.md")
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

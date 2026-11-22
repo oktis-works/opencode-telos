@@ -21,6 +21,7 @@ import {
   workflowScope,
 } from "../src/sdd/enforcement/workflow-tracker.js"
 import { createSddTools } from "../src/opencode/tools.js"
+import { createRepository } from "../src/sdd/persistence/repository.js"
 
 function tempDir(prefix: string): string {
   return mkdtempSync(join(tmpdir(), `opencode-telos-${prefix}-`))
@@ -238,6 +239,41 @@ describe("Renewable workflow window", () => {
 })
 
 describe("Change tools honour the scope gate", () => {
+  test("sdd.create_change is refused during bootstrap without creating a node", async () => {
+    const dir = tempDir("bootstrap-gate")
+    const ctx = { directory: dir, sessionID: `session-${Date.now()}` }
+    const tools = createSddTools()
+    try {
+      await (tools["sdd.initialize"] as any).execute({ project_name: "Bootstrap" }, ctx)
+      await (tools["sdd.build_graph"] as any).execute({
+        briefing: "A feature used by the bootstrap gate test.",
+        analysis_json: JSON.stringify({
+          features: [{ name: "Bootstrap feature", description: "Feature", priority: "high" }],
+          entities: [],
+          endpoints: [],
+          businessRules: [],
+          architectureComponents: [],
+          decisions: [],
+          requirements: [],
+          tasks: [],
+          relationships: [],
+          domains: [],
+          techStack: {},
+        }),
+      }, ctx)
+
+      const refused = await (tools["sdd.create_change"] as any).execute(
+        { title: "Too early", reason: "Bootstrap", affected_files: "src/a.ts" },
+        ctx,
+      )
+      expect(String(refused)).toContain("bootstrap")
+      const graph = createRepository(dir).loadGraph()
+      expect(graph.nodes.some((node) => node.type === "change")).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   async function initialize(): Promise<{ dir: string; ctx: { directory: string; sessionID: string } }> {
     const dir = tempDir("tools")
     const ctx = { directory: dir, sessionID: `session-${Date.now()}` }

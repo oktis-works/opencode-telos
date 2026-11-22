@@ -218,6 +218,20 @@ export function createGraphMutationTool(): ToolDefinition {
           if (metadata && ("acceptance_criteria" in metadata || "acceptance" in metadata || "legacy_acceptance" in metadata)) {
             return "Acceptance criteria are Requirement-owned. Use `sdd.acceptance` instead of editing legacy metadata."
           }
+          if (node.type === "task") {
+            if (metadata && ("approval" in metadata || "approved_files" in metadata)) {
+              return "Task approval cannot be changed through graph mutation; use `sdd.integrate_tasks` action=approve_task/reject_task."
+            }
+            if (metadata && "files" in metadata) {
+              const previous = JSON.stringify((node.metadata as Record<string, unknown>).files ?? [])
+              const next = JSON.stringify(metadata.files ?? [])
+              if (previous !== next) {
+                // Scope changed: the human approved a different set of files.
+                metadata.approval = { status: "PENDING" }
+                delete metadata.approved_files
+              }
+            }
+          }
           updateNode(graph, args.node_id, updates, { expected_version: args.expected_version })
           repo.saveGraph(graph)
           return `Node ${args.node_id} updated.`
