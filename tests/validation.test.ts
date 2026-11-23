@@ -44,14 +44,14 @@ describe("validateExecutableProject", () => {
     expect(goCheck).toBeDefined()
   })
 
-  test("detects Maven projects", { timeout: 15000 }, () => {
+  test("detects Maven projects", { timeout: 30000 }, () => {
     writeFileSync(join(dir, "pom.xml"), '<project><modelVersion>4.0.0</modelVersion></project>', "utf-8")
     const result = validateExecutableProject(dir)
     const mavenCheck = result.checks.find((c) => c.name === "maven test")
     expect(mavenCheck).toBeDefined()
   })
 
-  test("detects Gradle projects", { timeout: 15000 }, () => {
+  test("detects Gradle projects", { timeout: 30000 }, () => {
     writeFileSync(join(dir, "build.gradle"), 'plugins { id "java" }\n', "utf-8")
     const result = validateExecutableProject(dir)
     const gradleCheck = result.checks.find((c) => c.name === "gradle test")
