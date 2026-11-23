@@ -1,6 +1,6 @@
 # Plano de correção da UI do `/sdd viz`
 
-**Status:** implementado na versão 3.4.1; validação visual manual em navegador pendente.
+**Status:** implementado na versão 3.4.2; validação visual manual em navegador pendente.
 **Avaliação de comandos:** concluída em 2026-11-23; Fase 9 implementada.
 **Data:** 2026-11-23
 **Escopo:** dashboard servido por `/sdd viz` — visão Graph, visão Kanban, modal de task, filtros, estados de erro, acessibilidade e responsividade.
@@ -206,7 +206,7 @@ GET /api/tasks -> TaskBoardItem:
 **Objetivo:** impedir perda de dados e tornar as ações previsíveis.
 
 - [x] Abrir o modal somente com um `TaskBoardItem` completo.
-- [ ] Se a task não estiver em `allTasks`, buscar `/api/tasks` antes de abrir.
+- [x] Se a task não estiver em `allTasks`, buscar `/api/tasks` antes de abrir.
 - [x] Preencher `goal`, `files`, `priority`, `column`, `acceptance` e vínculos com os dados completos.
 - [x] Enviar `expected_version` no `Save` de uma task existente.
 - [x] Tratar `409 Version conflict` com mensagem clara e recarga da task.
@@ -225,7 +225,7 @@ GET /api/tasks -> TaskBoardItem:
 - [x] Melhorar o texto de `manual` para algo como `not requested`.
 - [x] Deixar claro que `Open SDD Change` é evolução/auditoria, não a autorização de escrita.
 - [x] Exibir ID e versão da task no topo do modal.
-- [ ] Exibir estado de carregamento do modal.
+- [x] Exibir estado de carregamento do modal.
 - [x] Exibir feedback de sucesso/erro de forma persistente até o fechamento.
 
 **Critério de saída:** abrir, salvar, cancelar, excluir, rejeitar e aprovar uma task não altera campos que o usuário não mudou; conflitos de versão são visíveis.
@@ -351,7 +351,7 @@ GET /api/tasks -> TaskBoardItem:
 - [x] Evitar overflow horizontal da página.
 - [ ] Testar em 1280px, 1024px, 768px e 390px.
 - [ ] Testar com zoom de 200%.
-- [ ] Não esconder filtros essenciais no mobile; usar um botão “Filters” com painel.
+- [x] Não esconder filtros essenciais no mobile; usar um botão “Filters” com painel.
 
 **Critério de saída:** em 390px de largura, é possível ver o board, rolar colunas, abrir o modal e salvar sem conteúdo cortado ou overflow da página.
 
@@ -643,18 +643,18 @@ Fase 9 (feedback /sdd) — independente da UI; pode rodar em paralelo
 
 Preencher ao final de cada fase, sem marcar como concluído o que não foi verificado.
 
-> **Estado do checklist:** 285 itens marcados e 25 pendentes. Os 25 pendentes são validações que exigem navegador real (layout em 390/768/1280px, zoom 200%, teclado real, rede desligada), o fallback de carregamento de modal/task e o painel mobile de filtros. Nenhum item pendente representa lógica de domínio não implementada.
+> **Estado do checklist:** 288 itens marcados e 22 pendentes. Os 22 pendentes são validações que exigem navegador real (layout em 390/768/1280px, zoom 200%, teclado real, rede desligada). Nenhum item pendente representa funcionalidade não implementada.
 
 | Fase | Status | Testes/verificações | Observações |
 |---|---|---|---|
 | 0 — Baseline | concluída | `tests/baseline-red.test.ts` contra `a3f27b1` e árvore atual | No commit antigo: 0 pass, 3 fail; na árvore corrigida: 4 pass. Baseline red-first reconstruído em worktree temporário. |
 | 1 — Kanban `/api/tasks` | concluída | `tests/tasks-api.test.ts` | `allTasks` é a fonte do board; `/api/graph` continuou leve. |
 | 2 — Funcional | concluída | testes de API + inspeção do HTML | Busca, filtros por `links`, ordenação, contadores e badges usam `TaskBoardItem`. |
-| 3 — Modal/mutações | concluída | testes de `expected_version` e edição seletiva | Modal usa task completa, envia só campos alterados, confirma ações destrutivas e sincroniza versão após mutações. |
+| 3 — Modal/mutações | concluída | testes de `expected_version`, edição seletiva e inspeção do fallback | Modal usa task completa, busca `/api/tasks` quando a task não está no board, exibe estado de carregamento e sincroniza a versão após mutações. |
 | 4 — Grafo/erros | concluída | teste do asset local e sintaxe dos scripts | `3d-force-graph` é servido por `/ui/3d-force-graph.min.js`; CSP sem CDN; painel de erro e retry. |
 | 5 — UX visual | concluída | inspeção de HTML/CSS | Toolbar agrupada, resumo de filtros, contagem, estado vazio, badges legíveis e ações do modal separadas. |
 | 6 — Acessibilidade | concluída | testes estáticos de ARIA | `role=dialog`, `aria-modal`, foco preso/Escape, tabs com setas, cards e nós acionáveis por teclado. |
-| 7 — Responsividade | implementada; validação visual pendente | breakpoints e inspeção de CSS | Breakpoints em 1200/900/700px, board com rolagem, modal em `92vw`/`88dvh`; sem navegador disponível para testar 390/768/1280px ou zoom 200%. |
+| 7 — Responsividade | implementada; validação visual pendente | breakpoints, inspeção de CSS e teste do painel mobile | Breakpoints em 1200/900/700px, board com rolagem, modal em `92vw`/`88dvh` e painel “Filters” no mobile; sem navegador disponível para testar 390/768/1280px ou zoom 200%. |
 | 8 — Testes finais | concluída com ressalvas | suíte completa, typecheck, oxlint, build, `git diff --check` | ESLint substituído por oxlint 1.95.0; 0 errors e 251 warnings preexistentes de `no-unused-vars`. |
 | 9 — Feedback `/sdd` | concluída | `tests/sdd-command.test.ts`, `tests/v2-sdk.test.ts` | `synthetic` recebe `inline`; fallback usa instrução fechada e não reexecuta o comando. |
 
@@ -684,14 +684,14 @@ worktree temporário, usando `tests/baseline-red.test.ts`:
 
 ### Resultado final
 
-- Versão: `3.4.1` (`package.json`, `marketplace.json` e `src/version.ts` sincronizados).
-- `bun test`: **505 pass, 0 fail, 4052 expect() calls** em 36 arquivos.
+- Versão: `3.4.2` (`package.json`, `marketplace.json` e `src/version.ts` sincronizados).
+- `bun test`: **505 pass, 0 fail, 4056 expect() calls** em 36 arquivos.
 - `bun test tests/tasks-api.test.ts tests/baseline-red.test.ts tests/sdd-command.test.ts tests/system-prompt.test.ts`: **68 pass, 0 fail**.
 - `bun run typecheck`: passou.
 - `bun run lint`: passou com **oxlint 1.95.0** — **0 errors**, 251 warnings de `no-unused-vars` (dívida preexistente).
 - `bun run build`: passou; `dist/server/ui/vendor/3d-force-graph.min.js` copiado.
 - `git diff --check`: passou sem erros de whitespace.
 - Baseline `a3f27b1`: **0 pass, 3 fail**; árvore atual: **4 pass** em `tests/baseline-red.test.ts`.
-- Checklist: **285 marcados, 25 pendentes** — todos os pendentes são validação manual em navegador, fallback de carregamento do modal/task ou painel mobile de filtros.
+- Checklist: **288 marcados, 22 pendentes** — todos os pendentes são validação manual em navegador.
 - Commit/push: realizados após este registro (consulte o histórico do Git).
-- Pendências conhecidas: validação visual/interativa em navegador real (390px, 768px, 1280px, zoom 200%, teclado real e rede desligada); fallback de carregamento do modal; botão mobile de filtros.
+- Pendências conhecidas: validação visual/interativa em navegador real (1280px, 1024px, 768px e 390px, zoom 200%, teclado real e rede desligada).

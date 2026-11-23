@@ -911,6 +911,8 @@ ${KANBAN_STYLE}
   </div>
   <div class="kanban-wrap" id="kanban-view" role="tabpanel" aria-labelledby="tab-kanban" style="display:none">
     <div class="kanban-toolbar" id="kanban-toolbar" aria-label="Task filters">
+      <button class="btn kanban-filters-toggle" id="kanban-filters-toggle" aria-expanded="false" aria-controls="kanban-filters-panel">Filters</button>
+      <div class="kanban-filters" id="kanban-filters-panel">
       <div class="tb-group" style="flex:1 1 220px">
         <label class="tb-label" for="kanban-search">Search</label>
         <input class="search" id="kanban-search" type="text" placeholder="Search tasks..." aria-label="Search tasks">
@@ -922,6 +924,7 @@ ${KANBAN_STYLE}
       <div class="tb-group"><label class="tb-label" for="kanban-filter-scope">Scope</label><select id="kanban-filter-scope"><option value="all">All</option><option value="target">Target only</option><option value="source">Source only</option></select></div>
       <div class="tb-group"><label class="tb-label" for="kanban-sort">Sort by</label><div class="tb-group-inline"><select id="kanban-sort"><option value="column">Column</option><option value="priority">Priority</option><option value="name">Name</option><option value="updated">Updated</option><option value="created">Created</option><option value="links">Links</option><option value="integration">Integration</option></select><select id="kanban-order" aria-label="Sort direction"><option value="asc">↑</option><option value="desc">↓</option></select></div></div>
       <button class="btn" id="kanban-reset-filters" style="margin-left:auto">Clear</button>
+      </div>
       <span class="kanban-result" id="kanban-result" role="status" aria-live="polite"></span>
       <span class="kanban-loading" id="kanban-loading">Refreshing tasks...</span>
       <span class="kanban-summary" id="kanban-filter-summary"></span>

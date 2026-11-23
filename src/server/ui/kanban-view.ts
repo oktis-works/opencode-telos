@@ -40,6 +40,8 @@ export const KANBAN_STYLE = `
     .kanban-toolbar input:focus, .kanban-toolbar select:focus { border-color: #58a6ff; }
     .kanban-toolbar .search { min-width: 190px; }
     .kanban-toolbar .tb-label { color: #a8b3c0; font-size: 10px; text-transform: uppercase; letter-spacing: .6px; display: block; margin-bottom: 2px; }
+    .kanban-filters { display: contents; }
+    .kanban-filters-toggle { display: none; }
     .kanban-toolbar .tb-group { display: flex; flex-direction: column; gap: 2px; }
     .kanban-toolbar .tb-group + .tb-group { border-left: 1px solid #30363d; padding-left: 8px; }
     .kanban-toolbar .tb-group-inline { display: flex; align-items: center; gap: 6px; }
@@ -115,6 +117,9 @@ export const KANBAN_STYLE = `
       .task-pending { margin-left: 0; }
       .kanban-wrap { padding: 8px; overflow-x: auto; }
       .kanban-toolbar { gap: 6px; padding: 8px; }
+      .kanban-filters-toggle { display: inline-flex; }
+      .kanban-filters { display: none; flex-basis: 100%; flex-wrap: wrap; gap: 6px; }
+      .kanban-filters.open { display: flex; }
       .kanban-toolbar .tb-group { flex: 1 1 45%; }
       .kanban-toolbar select { width: 100%; }
       .kanban-new { width: 100%; }
@@ -642,11 +647,47 @@ export const KANBAN_SCRIPT = `
     });
   }
 
-  function openTaskModal(task) {
+  function openModalShell(title, taskId) {
     var modal = el("task-modal");
-    if (!modal) return;
-    currentTask = task || null;
+    if (!modal) return false;
     modalTrigger = document.activeElement;
+    el("task-modal-title").textContent = title;
+    el("task-modal-id").textContent = taskId || "";
+    el("task-version").textContent = "";
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    return true;
+  }
+
+  function setModalLoading(taskId) {
+    currentTask = null;
+    initialForm = null;
+    el("task-id").value = taskId;
+    el("task-name").value = "";
+    el("task-description").value = "";
+    el("task-goal").value = "";
+    el("task-acceptance").value = "Loading task data...";
+    el("task-files").value = "";
+    el("task-priority").value = "medium";
+    el("task-column").value = "backlog";
+    el("task-link").value = "";
+    el("task-link-field").style.display = "none";
+    el("task-links-field").style.display = "";
+    el("task-links").textContent = "Loading links...";
+    el("task-integrate").style.display = "none";
+    el("task-approve").style.display = "none";
+    el("task-reject").style.display = "none";
+    el("task-delete").style.display = "none";
+    el("task-save").disabled = true;
+    updateChangeUi(null);
+    showStatus("Loading latest task...", null);
+    var focusTarget = el("task-close");
+    if (focusTarget) focusTarget.focus();
+  }
+
+  function populateTaskModal(task) {
+    currentTask = task || null;
     el("task-modal-title").textContent = task ? "Edit task" : "New task";
     el("task-modal-id").textContent = task ? task.id : "";
     el("task-version").textContent = task ? "v" + task.version : "";
@@ -669,15 +710,36 @@ export const KANBAN_SCRIPT = `
     el("task-approve").style.display = task ? "" : "none";
     el("task-reject").style.display = task ? "" : "none";
     el("task-delete").style.display = task ? "" : "none";
+    el("task-save").disabled = false;
     if (task) formatLinks(task); else el("task-links").innerHTML = "";
     updateChangeUi(task);
     showStatus("", null);
     initialForm = snapshotForm();
-    modal.classList.add("open");
-    modal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("modal-open");
     var focusTarget = el("task-name");
     if (focusTarget) focusTarget.focus();
+  }
+
+  function openTaskModal(task) {
+    if (!el("task-modal")) return;
+    if (task && !taskNodes().some(function (candidate) { return candidate.id === task.id; })) {
+      if (!openModalShell("Loading task...", task.id)) return;
+      setModalLoading(task.id);
+      refreshBoard().then(function (loaded) {
+        if (!loaded) {
+          showStatus("Could not load the latest task. Close the dialog and retry.", "error");
+          return;
+        }
+        var latest = allTasks.filter(function (candidate) { return candidate.id === task.id; })[0];
+        if (!latest) {
+          showStatus("Task " + task.id + " was not found. It may have been deleted.", "error");
+          return;
+        }
+        populateTaskModal(latest);
+      });
+      return;
+    }
+    if (!openModalShell(task ? "Edit task" : "New task", task ? task.id : "")) return;
+    populateTaskModal(task);
   }
 
   function closeTaskModal(force) {
@@ -926,6 +988,33 @@ export const KANBAN_SCRIPT = `
     if (backdrop) {
       backdrop.addEventListener("click", function (e) { if (e.target === backdrop) closeTaskModal(false); });
       backdrop.addEventListener("keydown", trapFocus);
+    }
+    var filtersToggle = el("kanban-filters-toggle");
+    var filtersPanel = el("kanban-filters-panel");
+    if (filtersToggle && filtersPanel) {
+      filtersToggle.addEventListener("click", function () {
+        var open = filtersPanel.classList.toggle("open");
+        filtersToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        filtersToggle.textContent = open ? "Hide filters" : "Filters";
+      });
+      var mobileFilters = window.matchMedia ? window.matchMedia("(max-width: 700px)") : null;
+      var syncFiltersToggle = function () {
+        if (!mobileFilters) return;
+        if (!mobileFilters.matches) {
+          filtersPanel.classList.remove("open");
+          filtersToggle.setAttribute("aria-expanded", "true");
+          filtersToggle.textContent = "Filters";
+        } else {
+          var open = filtersPanel.classList.contains("open");
+          filtersToggle.setAttribute("aria-expanded", open ? "true" : "false");
+          filtersToggle.textContent = open ? "Hide filters" : "Filters";
+        }
+      };
+      syncFiltersToggle();
+      if (mobileFilters) {
+        if (mobileFilters.addEventListener) mobileFilters.addEventListener("change", syncFiltersToggle);
+        else if (mobileFilters.addListener) mobileFilters.addListener(syncFiltersToggle);
+      }
     }
     var search = el("kanban-search");
     if (search) search.addEventListener("input", onSearchInput);
