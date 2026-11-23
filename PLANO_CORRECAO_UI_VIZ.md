@@ -1,10 +1,10 @@
 # Plano de correção da UI do `/sdd viz`
 
-**Status:** implementado na versão 3.4.0; validação visual manual em navegador pendente.  
-**Avaliação de comandos:** concluída em 2026-11-23; Fase 9 implementada.  
-**Data:** 2026-11-23  
-**Escopo:** dashboard servido por `/sdd viz` — visão Graph, visão Kanban, modal de task, filtros, estados de erro, acessibilidade e responsividade.  
-**Escopo adicional:** feedback inline dos comandos determinísticos `/sdd` (Fase 9).  
+**Status:** implementado na versão 3.4.0; validação visual manual em navegador pendente.
+**Avaliação de comandos:** concluída em 2026-11-23; Fase 9 implementada.
+**Data:** 2026-11-23
+**Escopo:** dashboard servido por `/sdd viz` — visão Graph, visão Kanban, modal de task, filtros, estados de erro, acessibilidade e responsividade.
+**Escopo adicional:** feedback inline dos comandos determinísticos `/sdd` (Fase 9).
 **Fora de escopo:** mudar o gate de aprovação de task, alterar a semântica de Change, redesenhar o produto em outro framework ou modificar o modelo de dados do grafo.
 
 > Este documento registra o plano e o resultado da execução. As caixas de cada fase foram mantidas como checklist de implementação; o estado real está resumido na tabela da seção 8.

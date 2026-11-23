@@ -1,8 +1,8 @@
 # Plano de implementação — fluxos brownfield na versão 3.3.0
 
-**Status:** concluído  
-**Versão alvo:** `3.3.0`  
-**Escopo:** `purpose=documentation` (AS-IS) e `purpose=reverse_engineering` (spec agnóstica para reconstrução)  
+**Status:** concluído
+**Versão alvo:** `3.3.0`
+**Escopo:** `purpose=documentation` (AS-IS) e `purpose=reverse_engineering` (spec agnóstica para reconstrução)
 **Princípio:** preservar o modelo task-first da 3.3.0, sem reintroduzir o gate antigo baseado em Change.
 
 ---
