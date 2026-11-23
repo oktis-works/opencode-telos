@@ -76,6 +76,18 @@ function headline(text: string): string {
   return line ? line.replace(/^##\s+/, "").trim() : text.split("\n")[0].trim()
 }
 
+/** Short confirmation for `/sdd tasks`, without truncating the full report. */
+function taskInline(result: string): string {
+  const approved = result.match(/^## Task (\S+) APPROVED/m)
+  if (approved) return "✅ Task " + approved[1] + " approved; declared files are writable."
+  const rejected = result.match(/^## Task (\S+) REJECTED/m)
+  if (rejected) return "⛔ Task " + rejected[1] + " rejected; files remain blocked."
+  const board = result.match(/https?:\/\/[^\s)]+/)
+  if (board && /task board/i.test(result)) return "🖥️ Task board running at " + board[0]
+  if (/task board unavailable/i.test(result)) return "⚠️ Task board unavailable: " + headline(result)
+  return headline(result)
+}
+
 /**
  * One entry per `/sdd` subcommand. This table is the single source of truth:
  * the dispatcher, the raw-command grammar, the panel and the tool annotation
@@ -102,7 +114,7 @@ const SDD_SUBCOMMANDS: readonly SddSubcommand[] = [
   { aliases: ["status"], takesArgs: false, summary: "Show current toggle state.", handler: sddStatus, inline: (result) => result.includes("🟢 ON") ? "🟢 SDD enforcement is ON." : "🔴 SDD enforcement is OFF." },
   { aliases: ["renew"], takesArgs: false, summary: "Renew the active workflow window (keeps the same Change).", handler: sddRenew, inline: (result) => result.includes("NOT RENEWED") ? "⚠️ " + headline(result) : "✅ " + headline(result) },
   { aliases: ["cache_reset", "cachereset"], takesArgs: false, summary: "Clear caches without killing the session (deterministic).", handler: sddCacheReset, inline: () => "🧹 Cache cleared: memory, disk and snapshot." },
-  { aliases: ["tasks"], takesArgs: true, summary: "List the Kanban task board. Also `tasks board`, `tasks integrate`, `tasks change <TASK-ID>`.", handler: sddTasks },
+  { aliases: ["tasks"], takesArgs: true, summary: "List the Kanban task board. Also `tasks board`, `tasks integrate`, `tasks change <TASK-ID>`.", handler: sddTasks, inline: taskInline },
   { aliases: ["export"], takesArgs: true, summary: "Export the reverse-engineering target backlog to a new project. Also `export <dir> --dry-run`.", handler: sddExport },
   { aliases: ["acceptance"], takesArgs: true, summary: "Human acceptance criteria. Also `acceptance accept|reject|waive|create|update|final-accept <ID>`.", handler: sddAcceptance },
   { aliases: ["guide"], takesArgs: true, summary: "Register human guidance: `guide <NODE-ID> <instruction>`.", handler: sddGuide },

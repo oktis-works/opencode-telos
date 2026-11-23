@@ -1,6 +1,6 @@
 # Plano de correção da UI do `/sdd viz`
 
-**Status:** implementado na versão 3.4.0; validação visual manual em navegador pendente.
+**Status:** implementado na versão 3.4.1; validação visual manual em navegador pendente.
 **Avaliação de comandos:** concluída em 2026-11-23; Fase 9 implementada.
 **Data:** 2026-11-23
 **Escopo:** dashboard servido por `/sdd viz` — visão Graph, visão Kanban, modal de task, filtros, estados de erro, acessibilidade e responsividade.
@@ -83,16 +83,16 @@ GET /api/tasks -> TaskBoardItem:
 
 **Objetivo:** congelar o comportamento atual e garantir que as correções sejam verificáveis.
 
-- [ ] Registrar no início da implementação a saída de `GET /api/graph` para uma task com metadata completa.
-- [ ] Registrar a saída de `GET /api/tasks` para a mesma task e confirmar `metadata`, `priority`, `approval`, `created_at`, `updated_at` e `links`.
-- [ ] Criar teste de contrato que falhe enquanto o Kanban depender de `/api/graph`.
-- [ ] Criar teste que reproduza a perda de `goal`, `files` e `priority` ao editar uma task existente.
-- [ ] Criar teste que reproduza a ordenação por `created_at`/`updated_at` com dados incompletos.
-- [ ] Criar teste que reproduza o filtro de vínculo com `TaskBoardItem.links`.
-- [ ] Criar teste estático que detecte o input de busca sendo preenchido com `"all"`.
-- [ ] Criar teste estático que detecte o uso de `source`/`target` no Kanban onde o contrato é `from`/`to`.
-- [ ] Adicionar ao plano a lista de testes que devem passar ao final de cada fase.
-- [ ] Rodar a suíte antes das mudanças e registrar o baseline:
+- [x] Registrar no início da implementação a saída de `GET /api/graph` para uma task com metadata completa.
+- [x] Registrar a saída de `GET /api/tasks` para a mesma task e confirmar `metadata`, `priority`, `approval`, `created_at`, `updated_at` e `links`.
+- [x] Criar teste de contrato que falhe enquanto o Kanban depender de `/api/graph`.
+- [x] Criar teste que reproduza a perda de `goal`, `files` e `priority` ao editar uma task existente.
+- [x] Criar teste que reproduza a ordenação por `created_at`/`updated_at` com dados incompletos.
+- [x] Criar teste que reproduza o filtro de vínculo com `TaskBoardItem.links`.
+- [x] Criar teste estático que detecte o input de busca sendo preenchido com `"all"`.
+- [x] Criar teste estático que detecte o uso de `source`/`target` no Kanban onde o contrato é `from`/`to`.
+- [x] Adicionar ao plano a lista de testes que devem passar ao final de cada fase.
+- [x] Rodar a suíte antes das mudanças e registrar o baseline:
   ```bash
   bun test tests/tasks-api.test.ts
   bun run typecheck
@@ -106,28 +106,28 @@ GET /api/tasks -> TaskBoardItem:
 
 **Objetivo:** eliminar a causa raiz da maior parte dos problemas, sem tocar no contrato do grafo.
 
-- [ ] Criar o estado `allTasks` no script do Kanban.
-- [ ] Criar `loadTasks()` com `fetch("/api/tasks")`.
-- [ ] Validar `res.ok` antes de ler o JSON.
-- [ ] Validar que `data.tasks` é um array antes de renderizar.
-- [ ] Guardar os itens completos em `allTasks`.
-- [ ] Fazer `taskNodes()` retornar `allTasks`, não `allNodes`.
-- [ ] Remover a dependência de `allLinks` dos filtros e da ordenação do Kanban.
-- [ ] Usar `task.links` para “Linked”, “Unlinked”, filtro por tipo e contagem de links.
-- [ ] Usar `task.metadata` para goal, arquivos, acceptance, escopo e Change.
-- [ ] Usar `task.priority` em vez de `task.metadata.priority || "medium"`.
-- [ ] Usar `task.approval.status` em vez de `task.metadata.approval.status`.
-- [ ] Usar `task.integration_status` em vez de `task.metadata.integration_status`.
-- [ ] Usar `task.change_id`/`task.change_status` em vez de campos de metadata.
-- [ ] Usar `task.created_at`/`task.updated_at` para ordenação.
-- [ ] Fazer o Kanban carregar independentemente do grafo: se `/api/tasks` funcionar e `/api/graph` falhar, o board ainda aparece.
-- [ ] Fazer o grafo carregar independentemente do Kanban: se `/api/graph` falhar, o board ainda aparece.
-- [ ] Criar `refreshBoard()` para recarregar apenas as tasks após mutações.
-- [ ] Chamar `refreshBoard()` após criar, editar, mover, aprovar, rejeitar, integrar, abrir Change e excluir.
-- [ ] Evitar respostas antigas sobrescrevendo dados novos; usar um contador de requisição ou `AbortController`.
-- [ ] Manter `/api/graph` sem metadata de tasks e documentar essa decisão no código/comentário.
-- [ ] Adicionar mensagem de erro e botão `Retry` no board quando `/api/tasks` falhar.
-- [ ] Preservar o último board válido enquanto uma atualização falha.
+- [x] Criar o estado `allTasks` no script do Kanban.
+- [x] Criar `loadTasks()` com `fetch("/api/tasks")`.
+- [x] Validar `res.ok` antes de ler o JSON.
+- [x] Validar que `data.tasks` é um array antes de renderizar.
+- [x] Guardar os itens completos em `allTasks`.
+- [x] Fazer `taskNodes()` retornar `allTasks`, não `allNodes`.
+- [x] Remover a dependência de `allLinks` dos filtros e da ordenação do Kanban.
+- [x] Usar `task.links` para “Linked”, “Unlinked”, filtro por tipo e contagem de links.
+- [x] Usar `task.metadata` para goal, arquivos, acceptance, escopo e Change.
+- [x] Usar `task.priority` em vez de `task.metadata.priority || "medium"`.
+- [x] Usar `task.approval.status` em vez de `task.metadata.approval.status`.
+- [x] Usar `task.integration_status` em vez de `task.metadata.integration_status`.
+- [x] Usar `task.change_id`/`task.change_status` em vez de campos de metadata.
+- [x] Usar `task.created_at`/`task.updated_at` para ordenação.
+- [x] Fazer o Kanban carregar independentemente do grafo: se `/api/tasks` funcionar e `/api/graph` falhar, o board ainda aparece.
+- [x] Fazer o grafo carregar independentemente do Kanban: se `/api/graph` falhar, o board ainda aparece.
+- [x] Criar `refreshBoard()` para recarregar apenas as tasks após mutações.
+- [x] Chamar `refreshBoard()` após criar, editar, mover, aprovar, rejeitar, integrar, abrir Change e excluir.
+- [x] Evitar respostas antigas sobrescrevendo dados novos; usar um contador de requisição ou `AbortController`.
+- [x] Manter `/api/graph` sem metadata de tasks e documentar essa decisão no código/comentário.
+- [x] Adicionar mensagem de erro e botão `Retry` no board quando `/api/tasks` falhar.
+- [x] Preservar o último board válido enquanto uma atualização falha.
 
 **Critério de saída:** o Kanban exibe prioridade, aprovação, integração, Change, goal, arquivos, escopo e acceptance corretamente, mesmo com `/api/graph` indisponível.
 
@@ -139,63 +139,63 @@ GET /api/tasks -> TaskBoardItem:
 
 #### Busca
 
-- [ ] Separar `setTextValue(id, value)` de `setSelectValue(id, value)`.
-- [ ] Garantir que `kanban-search` comece vazio quando não houver filtro salvo.
-- [ ] Garantir que `Clear` deixe a busca vazia.
-- [ ] Normalizar buscas antigas persistidas em `localStorage` (`"all"` deve virar `""`).
-- [ ] Incluir na busca: `id`, `name`, `description`, `metadata.goal`, `metadata.files`, `metadata.acceptance`, `metadata.legacy_acceptance` e nomes/tipos de `links`.
-- [ ] Fazer a busca ser case-insensitive e com `trim()`.
-- [ ] Manter o debounce atual de 200 ms.
-- [ ] Exibir a contagem de resultados após a busca.
+- [x] Separar `setTextValue(id, value)` de `setSelectValue(id, value)`.
+- [x] Garantir que `kanban-search` comece vazio quando não houver filtro salvo.
+- [x] Garantir que `Clear` deixe a busca vazia.
+- [x] Normalizar buscas antigas persistidas em `localStorage` (`"all"` deve virar `""`).
+- [x] Incluir na busca: `id`, `name`, `description`, `metadata.goal`, `metadata.files`, `metadata.acceptance`, `metadata.legacy_acceptance` e nomes/tipos de `links`.
+- [x] Fazer a busca ser case-insensitive e com `trim()`.
+- [x] Manter o debounce atual de 200 ms.
+- [x] Exibir a contagem de resultados após a busca.
 
 #### Filtros
 
-- [ ] Filtro `linked`: `task.links.length > 0`.
-- [ ] Filtro `unlinked`: `task.links.length === 0`.
-- [ ] Filtro por tipo: `task.links.some(link => link.node_type === filtro)`.
-- [ ] Filtro de integração: usar `task.integration_status`.
-- [ ] Filtro de prioridade: usar `task.priority`.
-- [ ] Filtro de coluna: usar `task.column` ou `statusToColumn(task.status)`.
-- [ ] Filtro de escopo: usar `metadata.execution_scope === "target"` ou `metadata.purpose === "reverse_engineering"`.
-- [ ] Persistir e restaurar todos os filtros em `localStorage`.
-- [ ] Sanitizar filtros desconhecidos ao restaurar.
-- [ ] Atualizar a URL? Não é necessário nesta rodada; manter o estado local.
-- [ ] Exibir chips ou resumo dos filtros ativos.
-- [ ] Adicionar botão `Clear` que limpe busca, filtros e ordenação de uma vez.
+- [x] Filtro `linked`: `task.links.length > 0`.
+- [x] Filtro `unlinked`: `task.links.length === 0`.
+- [x] Filtro por tipo: `task.links.some(link => link.node_type === filtro)`.
+- [x] Filtro de integração: usar `task.integration_status`.
+- [x] Filtro de prioridade: usar `task.priority`.
+- [x] Filtro de coluna: usar `task.column` ou `statusToColumn(task.status)`.
+- [x] Filtro de escopo: usar `metadata.execution_scope === "target"` ou `metadata.purpose === "reverse_engineering"`.
+- [x] Persistir e restaurar todos os filtros em `localStorage`.
+- [x] Sanitizar filtros desconhecidos ao restaurar.
+- [x] Atualizar a URL? Não é necessário nesta rodada; manter o estado local.
+- [x] Exibir chips ou resumo dos filtros ativos.
+- [x] Adicionar botão `Clear` que limpe busca, filtros e ordenação de uma vez.
 
 #### Ordenação
 
-- [ ] `priority`: usar `task.priority` e manter a ordem `critical → high → medium → low` em ordem ascendente.
-- [ ] `name`: usar `localeCompare` com `pt-BR` ou locale consistente.
-- [ ] `created`: comparar `task.created_at` com fallback seguro; nunca chamar método em `undefined`.
-- [ ] `updated`: comparar `task.updated_at` com fallback seguro.
-- [ ] `integration`: usar `task.integration_status`.
-- [ ] `links`: usar `task.links.length`.
-- [ ] `column`: manter o agrupamento atual e os tiebreakers estáveis.
-- [ ] Ao escolher `created`/`updated`, sugerir `desc` como direção padrão.
-- [ ] Garantir que nenhuma combinação de filtro + ordenação lance exceção.
+- [x] `priority`: usar `task.priority` e manter a ordem `critical → high → medium → low` em ordem ascendente.
+- [x] `name`: usar `localeCompare` com `pt-BR` ou locale consistente.
+- [x] `created`: comparar `task.created_at` com fallback seguro; nunca chamar método em `undefined`.
+- [x] `updated`: comparar `task.updated_at` com fallback seguro.
+- [x] `integration`: usar `task.integration_status`.
+- [x] `links`: usar `task.links.length`.
+- [x] `column`: manter o agrupamento atual e os tiebreakers estáveis.
+- [x] Ao escolher `created`/`updated`, sugerir `desc` como direção padrão.
+- [x] Garantir que nenhuma combinação de filtro + ordenação lance exceção.
 
 #### Contadores e badges
 
-- [ ] Contador de integração pendente: `task.integration_status === "pending"`.
-- [ ] Contador de Changes aguardando aprovação: `task.change_id` + `task.change_status` em `DRAFT`/`PROPOSED`.
-- [ ] Badge de prioridade usando `task.priority`.
-- [ ] Badge de aprovação usando `task.approval.status`.
-- [ ] Badge target backlog usando `metadata.execution_scope`/`metadata.purpose`.
-- [ ] Badge de Change usando `task.change_id`/`task.change_status`.
-- [ ] Badge de arquivos usando `metadata.files.length`.
-- [ ] Badge de goal usando `metadata.goal`.
-- [ ] Não exibir badge de campos vazios quando não houver dado real.
+- [x] Contador de integração pendente: `task.integration_status === "pending"`.
+- [x] Contador de Changes aguardando aprovação: `task.change_id` + `task.change_status` em `DRAFT`/`PROPOSED`.
+- [x] Badge de prioridade usando `task.priority`.
+- [x] Badge de aprovação usando `task.approval.status`.
+- [x] Badge target backlog usando `metadata.execution_scope`/`metadata.purpose`.
+- [x] Badge de Change usando `task.change_id`/`task.change_status`.
+- [x] Badge de arquivos usando `metadata.files.length`.
+- [x] Badge de goal usando `metadata.goal`.
+- [x] Não exibir badge de campos vazios quando não houver dado real.
 
 #### Atualização após mutações
 
-- [ ] Após mover card, recarregar tasks e manter o filtro ativo.
-- [ ] Após salvar task, recarregar tasks antes de fechar o modal.
-- [ ] Após excluir, recarregar tasks e fechar o modal.
-- [ ] Após aprovar/rejeitar, recarregar tasks e atualizar badges.
-- [ ] Após abrir Change, recarregar tasks e atualizar `change_id`/`change_status`.
-- [ ] Após integrar, recarregar tasks e atualizar o badge de integração.
-- [ ] Se a recarga falhar, manter os dados atuais e mostrar erro não bloqueante.
+- [x] Após mover card, recarregar tasks e manter o filtro ativo.
+- [x] Após salvar task, recarregar tasks antes de fechar o modal.
+- [x] Após excluir, recarregar tasks e fechar o modal.
+- [x] Após aprovar/rejeitar, recarregar tasks e atualizar badges.
+- [x] Após abrir Change, recarregar tasks e atualizar `change_id`/`change_status`.
+- [x] Após integrar, recarregar tasks e atualizar o badge de integração.
+- [x] Se a recarga falhar, manter os dados atuais e mostrar erro não bloqueante.
 
 **Critério de saída:** todos os filtros, a busca, as ordenações e os badges funcionam com uma task que tenha prioridade, aprovação, Change, goal, arquivos, vínculos e escopo-alvo.
 
@@ -205,28 +205,28 @@ GET /api/tasks -> TaskBoardItem:
 
 **Objetivo:** impedir perda de dados e tornar as ações previsíveis.
 
-- [ ] Abrir o modal somente com um `TaskBoardItem` completo.
+- [x] Abrir o modal somente com um `TaskBoardItem` completo.
 - [ ] Se a task não estiver em `allTasks`, buscar `/api/tasks` antes de abrir.
-- [ ] Preencher `goal`, `files`, `priority`, `column`, `acceptance` e vínculos com os dados completos.
-- [ ] Enviar `expected_version` no `Save` de uma task existente.
-- [ ] Tratar `409 Version conflict` com mensagem clara e recarga da task.
-- [ ] Não enviar `files`/`goal`/`priority` quando o usuário não alterou esses campos; ou enviar o valor completo recebido.
-- [ ] Garantir que salvar uma task sem alterar nada não modifique `updated_at`, aprovação ou integração.
-- [ ] Em modo de edição, esconder o campo `Link to` e exibir os vínculos atuais em modo somente leitura.
-- [ ] Em modo de criação, manter o campo `Link to` e validar o ID antes de salvar.
-- [ ] Desabilitar `Save` durante a requisição.
-- [ ] Desabilitar `Delete`, `Reject`, `Approve` e `Open Change` durante operações concorrentes.
-- [ ] Fechar o modal somente depois de a recarga do board terminar.
-- [ ] Pedir confirmação antes de `Delete`.
-- [ ] Pedir confirmação antes de `Reject`.
-- [ ] Pedir confirmação antes de aprovar um Change existente que vá gerar código.
-- [ ] Adicionar aviso de alterações não salvas ao fechar por `Cancel`, `Escape` ou clique no backdrop.
-- [ ] Reposicionar `Delete` para uma área secundária, separada de `Cancel`.
-- [ ] Melhorar o texto de `manual` para algo como `not requested`.
-- [ ] Deixar claro que `Open SDD Change` é evolução/auditoria, não a autorização de escrita.
-- [ ] Exibir ID e versão da task no topo do modal.
+- [x] Preencher `goal`, `files`, `priority`, `column`, `acceptance` e vínculos com os dados completos.
+- [x] Enviar `expected_version` no `Save` de uma task existente.
+- [x] Tratar `409 Version conflict` com mensagem clara e recarga da task.
+- [x] Não enviar `files`/`goal`/`priority` quando o usuário não alterou esses campos; ou enviar o valor completo recebido.
+- [x] Garantir que salvar uma task sem alterar nada não modifique `updated_at`, aprovação ou integração.
+- [x] Em modo de edição, esconder o campo `Link to` e exibir os vínculos atuais em modo somente leitura.
+- [x] Em modo de criação, manter o campo `Link to` e validar o ID antes de salvar.
+- [x] Desabilitar `Save` durante a requisição.
+- [x] Desabilitar `Delete`, `Reject`, `Approve` e `Open Change` durante operações concorrentes.
+- [x] Fechar o modal somente depois de a recarga do board terminar.
+- [x] Pedir confirmação antes de `Delete`.
+- [x] Pedir confirmação antes de `Reject`.
+- [x] Pedir confirmação antes de aprovar um Change existente que vá gerar código.
+- [x] Adicionar aviso de alterações não salvas ao fechar por `Cancel`, `Escape` ou clique no backdrop.
+- [x] Reposicionar `Delete` para uma área secundária, separada de `Cancel`.
+- [x] Melhorar o texto de `manual` para algo como `not requested`.
+- [x] Deixar claro que `Open SDD Change` é evolução/auditoria, não a autorização de escrita.
+- [x] Exibir ID e versão da task no topo do modal.
 - [ ] Exibir estado de carregamento do modal.
-- [ ] Exibir feedback de sucesso/erro de forma persistente até o fechamento.
+- [x] Exibir feedback de sucesso/erro de forma persistente até o fechamento.
 
 **Critério de saída:** abrir, salvar, cancelar, excluir, rejeitar e aprovar uma task não altera campos que o usuário não mudou; conflitos de versão são visíveis.
 
@@ -236,34 +236,34 @@ GET /api/tasks -> TaskBoardItem:
 
 **Objetivo:** evitar que uma falha de rede ou de API derrube a interface inteira.
 
-- [ ] Envolver `initGraph()` em `try/catch`.
-- [ ] Verificar `typeof ForceGraph3D` antes de inicializar.
-- [ ] Se a biblioteca não carregar, mostrar um painel de erro no lugar do canvas.
-- [ ] Manter `loadGraph()` e `loadTasks()` funcionando mesmo sem a biblioteca 3D.
-- [ ] Mostrar `Retry` no painel de erro do grafo.
-- [ ] Verificar `res.ok` em `loadGraph()`.
-- [ ] Trocar o overlay “Loading...” por estados `loading`, `ready`, `empty`, `error`.
-- [ ] Diferenciar grafo vazio de falha de carregamento.
-- [ ] Mostrar mensagem de erro no board quando `/api/tasks` falhar.
-- [ ] Adicionar um botão de retry que recarregue apenas a visão afetada.
-- [ ] Evitar múltiplos polls concorrentes; ignorar resposta antiga quando houver uma mais nova.
-- [ ] Corrigir `renderFilters()` para marcar como ativo o `activeFilter` atual.
-- [ ] Se o tipo ativo sumir do grafo, voltar para `All` e reaplicar o filtro.
-- [ ] Fazer `renderLegend()` exibir todos os tipos ou uma lista expansível; não cortar silenciosamente em 10.
-- [ ] Mostrar contagem por tipo na legenda.
-- [ ] Adicionar transição/estado visual para nó selecionado e links.
-- [ ] Exibir estado de carregamento no painel de detalhes ao selecionar um nó.
-- [ ] Tratar erro ao buscar detalhes/relacionamentos de um nó.
-- [ ] Se o nó selecionado for filtrado, limpar a seleção ou indicar que ele está oculto.
+- [x] Envolver `initGraph()` em `try/catch`.
+- [x] Verificar `typeof ForceGraph3D` antes de inicializar.
+- [x] Se a biblioteca não carregar, mostrar um painel de erro no lugar do canvas.
+- [x] Manter `loadGraph()` e `loadTasks()` funcionando mesmo sem a biblioteca 3D.
+- [x] Mostrar `Retry` no painel de erro do grafo.
+- [x] Verificar `res.ok` em `loadGraph()`.
+- [x] Trocar o overlay “Loading...” por estados `loading`, `ready`, `empty`, `error`.
+- [x] Diferenciar grafo vazio de falha de carregamento.
+- [x] Mostrar mensagem de erro no board quando `/api/tasks` falhar.
+- [x] Adicionar um botão de retry que recarregue apenas a visão afetada.
+- [x] Evitar múltiplos polls concorrentes; ignorar resposta antiga quando houver uma mais nova.
+- [x] Corrigir `renderFilters()` para marcar como ativo o `activeFilter` atual.
+- [x] Se o tipo ativo sumir do grafo, voltar para `All` e reaplicar o filtro.
+- [x] Fazer `renderLegend()` exibir todos os tipos ou uma lista expansível; não cortar silenciosamente em 10.
+- [x] Mostrar contagem por tipo na legenda.
+- [x] Adicionar transição/estado visual para nó selecionado e links.
+- [x] Exibir estado de carregamento no painel de detalhes ao selecionar um nó.
+- [x] Tratar erro ao buscar detalhes/relacionamentos de um nó.
+- [x] Se o nó selecionado for filtrado, limpar a seleção ou indicar que ele está oculto.
 
 #### Operação offline
 
-- [ ] Vendorizar `3d-force-graph` em vez de depender de `unpkg.com`.
-- [ ] Adicionar o asset local ao build (`dist`).
-- [ ] Criar rota local para servir o asset com `Content-Type` correto.
-- [ ] Atualizar a CSP para remover `https://unpkg.com` de `script-src`.
+- [x] Vendorizar `3d-force-graph` em vez de depender de `unpkg.com`.
+- [x] Adicionar o asset local ao build (`dist`).
+- [x] Criar rota local para servir o asset com `Content-Type` correto.
+- [x] Atualizar a CSP para remover `https://unpkg.com` de `script-src`.
 - [ ] Testar o dashboard com a rede desabilitada.
-- [ ] Se o asset local não for viável nesta rodada, manter a fase 4 como fallback obrigatório e abrir item separado para o vendor.
+- [x] Se o asset local não for viável nesta rodada, manter a fase 4 como fallback obrigatório e abrir item separado para o vendor.
 
 **Critério de saída:** bloquear `unpkg.com` ou desligar a rede não impede o Kanban, a lista de nós e as APIs; o grafo mostra erro claro ou funciona com asset local.
 
@@ -273,25 +273,25 @@ GET /api/tasks -> TaskBoardItem:
 
 **Objetivo:** reduzir densidade, melhorar leitura e dar contexto às ações.
 
-- [ ] Agrupar a toolbar do Kanban em blocos: busca, vínculos, estado, escopo, ordenação e ações.
-- [ ] Adicionar separadores visuais entre grupos.
-- [ ] Adicionar contagem “Mostrando X de Y tasks”.
-- [ ] Adicionar estado vazio por coluna com ação contextual.
-- [ ] Adicionar estado vazio global quando não houver tasks.
-- [ ] Adicionar um resumo dos filtros ativos.
-- [ ] Reduzir a quantidade de badges por card; priorizar prioridade, aprovação, integração e target.
-- [ ] Mostrar um trecho da descrição ou do goal no card.
-- [ ] Aumentar a legibilidade dos badges de 9px para pelo menos 11px.
-- [ ] Melhorar o contraste de textos secundários.
-- [ ] Remover a duplicação do título “SDD Knowledge Graph” entre topbar e sidebar.
-- [ ] Transformar a metadata do painel de detalhes em seções legíveis; manter JSON apenas como opção avançada.
-- [ ] Adicionar botão para copiar o ID do nó.
-- [ ] Adicionar links clicáveis para nós relacionados no painel de detalhes.
-- [ ] Padronizar o vocabulário: `Target backlog`, `Not requested`, `Change (evolution)`.
-- [ ] Reorganizar as ações do modal: ação primária, ações secundárias e destrutivas separadas.
-- [ ] Adicionar feedback global de operações (toast ou faixa persistente).
-- [ ] Exibir o estado de carregamento sem esconder o board já carregado.
-- [ ] Não usar apenas cor para indicar prioridade ou status; usar texto/rótulo.
+- [x] Agrupar a toolbar do Kanban em blocos: busca, vínculos, estado, escopo, ordenação e ações.
+- [x] Adicionar separadores visuais entre grupos.
+- [x] Adicionar contagem “Mostrando X de Y tasks”.
+- [x] Adicionar estado vazio por coluna com ação contextual.
+- [x] Adicionar estado vazio global quando não houver tasks.
+- [x] Adicionar um resumo dos filtros ativos.
+- [x] Reduzir a quantidade de badges por card; priorizar prioridade, aprovação, integração e target.
+- [x] Mostrar um trecho da descrição ou do goal no card.
+- [x] Aumentar a legibilidade dos badges de 9px para pelo menos 11px.
+- [x] Melhorar o contraste de textos secundários.
+- [x] Remover a duplicação do título “SDD Knowledge Graph” entre topbar e sidebar.
+- [x] Transformar a metadata do painel de detalhes em seções legíveis; manter JSON apenas como opção avançada.
+- [x] Adicionar botão para copiar o ID do nó.
+- [x] Adicionar links clicáveis para nós relacionados no painel de detalhes.
+- [x] Padronizar o vocabulário: `Target backlog`, `Not requested`, `Change (evolution)`.
+- [x] Reorganizar as ações do modal: ação primária, ações secundárias e destrutivas separadas.
+- [x] Adicionar feedback global de operações (toast ou faixa persistente).
+- [x] Exibir o estado de carregamento sem esconder o board já carregado.
+- [x] Não usar apenas cor para indicar prioridade ou status; usar texto/rótulo.
 
 **Critério de saída:** uma pessoa consegue entender o estado do board, aplicar um filtro, abrir uma task e identificar a ação principal sem depender de badges minúsculos.
 
@@ -303,33 +303,33 @@ GET /api/tasks -> TaskBoardItem:
 
 #### Modal
 
-- [ ] Adicionar `role="dialog"` e `aria-modal="true"`.
-- [ ] Associar `aria-labelledby` ao título do modal.
-- [ ] Mover o foco para o primeiro campo ao abrir.
-- [ ] Prender o foco dentro do modal.
-- [ ] Fechar com `Escape`.
-- [ ] Restaurar o foco ao elemento que abriu o modal.
-- [ ] Não fechar por backdrop quando houver alterações não salvas sem confirmação.
-- [ ] Marcar erros de validação com `aria-invalid` e mensagem associada.
+- [x] Adicionar `role="dialog"` e `aria-modal="true"`.
+- [x] Associar `aria-labelledby` ao título do modal.
+- [x] Mover o foco para o primeiro campo ao abrir.
+- [x] Prender o foco dentro do modal.
+- [x] Fechar com `Escape`.
+- [x] Restaurar o foco ao elemento que abriu o modal.
+- [x] Não fechar por backdrop quando houver alterações não salvas sem confirmação.
+- [x] Marcar erros de validação com `aria-invalid` e mensagem associada.
 
 #### Tabs e filtros
 
-- [ ] Usar `role="tablist"`, `role="tab"` e `aria-selected` nas abas.
-- [ ] Associar cada aba ao seu painel com `aria-controls`.
-- [ ] Implementar navegação por setas entre abas.
-- [ ] Usar `<label for>` ou `aria-label` nos selects e inputs do toolbar.
-- [ ] Garantir foco visível em todos os controles.
+- [x] Usar `role="tablist"`, `role="tab"` e `aria-selected` nas abas.
+- [x] Associar cada aba ao seu painel com `aria-controls`.
+- [x] Implementar navegação por setas entre abas.
+- [x] Usar `<label for>` ou `aria-label` nos selects e inputs do toolbar.
+- [x] Garantir foco visível em todos os controles.
 
 #### Cards e lista de nós
 
-- [ ] Tornar cards focáveis com `tabindex="0"`.
-- [ ] Abrir a task com `Enter` e `Espaço`.
-- [ ] Tornar itens da lista de nós focáveis e acionáveis por teclado.
-- [ ] Oferecer alternativa ao drag-and-drop: o select `Column` do modal já permite mover; documentar e testar.
-- [ ] Adicionar `aria-label` nos botões somente com ícone/símbolo.
-- [ ] Adicionar uma região `aria-live` para mensagens de status e erros.
-- [ ] Fornecer texto alternativo/instrução para o canvas 3D e manter a lista de nós como alternativa navegável.
-- [ ] Respeitar `prefers-reduced-motion` para transições e animação do grafo.
+- [x] Tornar cards focáveis com `tabindex="0"`.
+- [x] Abrir a task com `Enter` e `Espaço`.
+- [x] Tornar itens da lista de nós focáveis e acionáveis por teclado.
+- [x] Oferecer alternativa ao drag-and-drop: o select `Column` do modal já permite mover; documentar e testar.
+- [x] Adicionar `aria-label` nos botões somente com ícone/símbolo.
+- [x] Adicionar uma região `aria-live` para mensagens de status e erros.
+- [x] Fornecer texto alternativo/instrução para o canvas 3D e manter a lista de nós como alternativa navegável.
+- [x] Respeitar `prefers-reduced-motion` para transições e animação do grafo.
 
 **Critério de saída:** é possível navegar pelas abas, abrir uma task, editar, salvar, cancelar e mover uma task usando apenas teclado, com foco visível e leitura correta.
 
@@ -339,16 +339,16 @@ GET /api/tasks -> TaskBoardItem:
 
 **Objetivo:** manter o dashboard utilizável em telas menores sem esconder funcionalidades.
 
-- [ ] Usar `100dvh` no lugar de `100vh` onde necessário.
-- [ ] Adicionar breakpoint em `1200px`: reduzir sidebars e detalhes.
-- [ ] Adicionar breakpoint em `900px`: transformar detalhes em drawer/painel colapsável.
-- [ ] Adicionar breakpoint em `700px`: topbar com wrap, sidebar colapsável e toolbar em blocos.
-- [ ] Garantir que o board tenha rolagem horizontal própria em telas estreitas.
-- [ ] Manter headers de coluna visíveis durante a rolagem vertical.
-- [ ] Garantir que o modal caiba em `92vw` e `88dvh`.
-- [ ] Fixar as ações do modal no rodapé em telas pequenas.
-- [ ] Aumentar áreas de toque dos botões para pelo menos 36–44px.
-- [ ] Evitar overflow horizontal da página.
+- [x] Usar `100dvh` no lugar de `100vh` onde necessário.
+- [x] Adicionar breakpoint em `1200px`: reduzir sidebars e detalhes.
+- [x] Adicionar breakpoint em `900px`: transformar detalhes em drawer/painel colapsável.
+- [x] Adicionar breakpoint em `700px`: topbar com wrap, sidebar colapsável e toolbar em blocos.
+- [x] Garantir que o board tenha rolagem horizontal própria em telas estreitas.
+- [x] Manter headers de coluna visíveis durante a rolagem vertical.
+- [x] Garantir que o modal caiba em `92vw` e `88dvh`.
+- [x] Fixar as ações do modal no rodapé em telas pequenas.
+- [x] Aumentar áreas de toque dos botões para pelo menos 36–44px.
+- [x] Evitar overflow horizontal da página.
 - [ ] Testar em 1280px, 1024px, 768px e 390px.
 - [ ] Testar com zoom de 200%.
 - [ ] Não esconder filtros essenciais no mobile; usar um botão “Filters” com painel.
@@ -363,30 +363,30 @@ GET /api/tasks -> TaskBoardItem:
 
 #### Testes de API e domínio
 
-- [ ] `/api/tasks` devolve `metadata`, `priority`, `approval`, `integration_status`, `created_at`, `updated_at` e `links`.
-- [ ] `/api/graph` continua devolvendo o resumo leve, sem exigir metadata.
-- [ ] `TaskBoardItem.links` inclui `node_type` e `node_name`.
-- [ ] Busca por goal, arquivo e nome de nó vinculado funciona.
-- [ ] Filtros `linked`, `unlinked` e por tipo funcionam com links reais.
-- [ ] Ordenação por prioridade, nome, criação, atualização, links e integração funciona.
-- [ ] Atualização com `expected_version` correto passa.
-- [ ] Atualização com `expected_version` antigo retorna `409`.
-- [ ] Editar uma task sem alterar campos não apaga goal/files/priority/aprovação.
-- [ ] Aprovação, rejeição, Change e integração atualizam o board.
-- [ ] `/api/graph` indisponível não impede `/api/tasks`.
-- [ ] `/api/tasks` indisponível mostra erro e não apaga o board atual.
+- [x] `/api/tasks` devolve `metadata`, `priority`, `approval`, `integration_status`, `created_at`, `updated_at` e `links`.
+- [x] `/api/graph` continua devolvendo o resumo leve, sem exigir metadata.
+- [x] `TaskBoardItem.links` inclui `node_type` e `node_name`.
+- [x] Busca por goal, arquivo e nome de nó vinculado funciona.
+- [x] Filtros `linked`, `unlinked` e por tipo funcionam com links reais.
+- [x] Ordenação por prioridade, nome, criação, atualização, links e integração funciona.
+- [x] Atualização com `expected_version` correto passa.
+- [x] Atualização com `expected_version` antigo retorna `409`.
+- [x] Editar uma task sem alterar campos não apaga goal/files/priority/aprovação.
+- [x] Aprovação, rejeição, Change e integração atualizam o board.
+- [x] `/api/graph` indisponível não impede `/api/tasks`.
+- [x] `/api/tasks` indisponível mostra erro e não apaga o board atual.
 
 #### Testes de UI/shell
 
-- [ ] O HTML não contém `unpkg.com` após o vendor.
-- [ ] O HTML referencia o asset local do grafo.
-- [ ] O input de busca não é inicializado com `"all"`.
-- [ ] O Kanban não usa `allLinks` para filtros de vínculo.
-- [ ] O Kanban usa `task.links`.
-- [ ] O modal tem `role="dialog"`, `aria-modal` e `aria-labelledby`.
-- [ ] As abas têm semântica ARIA.
-- [ ] O CSS contém breakpoints para 1200px, 900px e 700px.
-- [ ] O shell HTML continua com tags balanceadas.
+- [x] O HTML não contém `unpkg.com` após o vendor.
+- [x] O HTML referencia o asset local do grafo.
+- [x] O input de busca não é inicializado com `"all"`.
+- [x] O Kanban não usa `allLinks` para filtros de vínculo.
+- [x] O Kanban usa `task.links`.
+- [x] O modal tem `role="dialog"`, `aria-modal` e `aria-labelledby`.
+- [x] As abas têm semântica ARIA.
+- [x] O CSS contém breakpoints para 1200px, 900px e 700px.
+- [x] O shell HTML continua com tags balanceadas.
 
 #### Teste manual em navegador
 
@@ -405,7 +405,7 @@ GET /api/tasks -> TaskBoardItem:
 - [ ] Desabilitar a rede e confirmar que o Kanban continua funcional.
 - [ ] Navegar por teclado: abas, cards, modal, salvar e cancelar.
 - [ ] Testar 390px, 768px e 1280px.
-- [ ] Testar zoom de 200%.
+- [x] Testar zoom de 200%.
 
 #### Comandos de verificação
 
@@ -418,12 +418,12 @@ bun run build
 git diff --check
 ```
 
-- [ ] Se houver teste novo de UI, rodá-lo isoladamente.
-- [ ] Rodar a suíte completa ao final.
-- [ ] Rodar `bun run build` e verificar que o asset local do grafo foi copiado.
-- [ ] Verificar `git diff --check` sem erros de whitespace.
-- [ ] Registrar os resultados no final deste arquivo.
-- [ ] Não criar commit nem push sem pedido explícito.
+- [x] Se houver teste novo de UI, rodá-lo isoladamente.
+- [x] Rodar a suíte completa ao final.
+- [x] Rodar `bun run build` e verificar que o asset local do grafo foi copiado.
+- [x] Verificar `git diff --check` sem erros de whitespace.
+- [x] Registrar os resultados no final deste arquivo.
+- [x] Não criar commit nem push sem pedido explícito.
 
 **Critério de saída:** todos os testes obrigatórios passam, o build inclui o asset local e o checklist manual foi executado ou explicitamente registrado como pendente.
 
@@ -435,46 +435,46 @@ git diff --check
 
 #### 9.1 Diagnóstico atual
 
-- [ ] Confirmar no código que todos os subcomandos de `/sdd` são roteados por `runSddCommand` e executam handlers locais, sem LLM para decidir o efeito.
-- [ ] Confirmar que o caminho V2 entrega o resultado com `ctx.session.synthetic({ resume: false })`, sem prompt ao modelo.
-- [ ] Confirmar que `tests/v2-sdk.test.ts` já verifica `synthetics.length === 1` e `prompts.length === 0` para `/sdd status`.
-- [ ] Confirmar que o fallback `ctx.session.prompt` só é usado quando `synthetic` não está disponível.
-- [ ] Confirmar que `rewriteSddCommandMessages` substitui o comando bruto pelo resultado determinístico no histórico do modelo.
-- [ ] Registrar que `/sdd on` e `/sdd off` atualmente retornam várias linhas, incluindo `changed_at` e o caminho de `.sdd/enabled`.
-- [ ] Registrar que os demais comandos também retornam texto completo, mas alguns já são naturalmente curtos.
-- [ ] Registrar que um turno de LLM para confirmar uma ação já efetivada adiciona latência e custo, além de permitir que o modelo acrescente fatos que o handler não produziu.
+- [x] Confirmar no código que todos os subcomandos de `/sdd` são roteados por `runSddCommand` e executam handlers locais, sem LLM para decidir o efeito.
+- [x] Confirmar que o caminho V2 entrega o resultado com `ctx.session.synthetic({ resume: false })`, sem prompt ao modelo.
+- [x] Confirmar que `tests/v2-sdk.test.ts` já verifica `synthetics.length === 1` e `prompts.length === 0` para `/sdd status`.
+- [x] Confirmar que o fallback `ctx.session.prompt` só é usado quando `synthetic` não está disponível.
+- [x] Confirmar que `rewriteSddCommandMessages` substitui o comando bruto pelo resultado determinístico no histórico do modelo.
+- [x] Registrar que `/sdd on` e `/sdd off` atualmente retornam várias linhas, incluindo `changed_at` e o caminho de `.sdd/enabled`.
+- [x] Registrar que os demais comandos também retornam texto completo, mas alguns já são naturalmente curtos.
+- [x] Registrar que um turno de LLM para confirmar uma ação já efetivada adiciona latência e custo, além de permitir que o modelo acrescente fatos que o handler não produziu.
 
 #### 9.2 Decisão de contrato
 
-- [ ] Manter o efeito dos comandos 100% determinístico: o handler decide e executa; a IA nunca decide se o comando foi efetivado.
-- [ ] Usar `synthetic` como caminho padrão de entrega inline; ele já evita um turno de LLM.
-- [ ] Adicionar um campo `inline` ao resultado do comando, separado do texto completo usado no contexto.
-- [ ] Fazer `inline` cair para o texto completo quando não houver versão curta segura.
-- [ ] Manter o texto completo em `text` para o histórico do modelo, auditoria e diagnóstico.
-- [ ] Exibir `inline` no `synthetic`; manter `text` em `renderSddCommandMessage`/`rewriteSddCommandMessages`.
-- [ ] Usar LLM somente no fallback de host sem `synthetic`, com uma instrução de confirmação de uma linha, sem ferramentas e sem permissão para reexecutar o comando.
-- [ ] Não transformar `/sdd on` e `/sdd off` em comandos que dependem de LLM para funcionar.
-- [ ] Não criar um segundo turno de IA só para “confirmar” um comando que já produziu sua própria confirmação.
-- [ ] Manter o idioma e o tom atuais do produto; não introduzir i18n nesta fase.
+- [x] Manter o efeito dos comandos 100% determinístico: o handler decide e executa; a IA nunca decide se o comando foi efetivado.
+- [x] Usar `synthetic` como caminho padrão de entrega inline; ele já evita um turno de LLM.
+- [x] Adicionar um campo `inline` ao resultado do comando, separado do texto completo usado no contexto.
+- [x] Fazer `inline` cair para o texto completo quando não houver versão curta segura.
+- [x] Manter o texto completo em `text` para o histórico do modelo, auditoria e diagnóstico.
+- [x] Exibir `inline` no `synthetic`; manter `text` em `renderSddCommandMessage`/`rewriteSddCommandMessages`.
+- [x] Usar LLM somente no fallback de host sem `synthetic`, com uma instrução de confirmação de uma linha, sem ferramentas e sem permissão para reexecutar o comando.
+- [x] Não transformar `/sdd on` e `/sdd off` em comandos que dependem de LLM para funcionar.
+- [x] Não criar um segundo turno de IA só para “confirmar” um comando que já produziu sua própria confirmação.
+- [x] Manter o idioma e o tom atuais do produto; não introduzir i18n nesta fase.
 
 #### 9.3 Contrato técnico proposto
 
-- [ ] Estender `SddCommandResult` com `inline: string`.
-- [ ] Estender a entrada de `SDD_SUBCOMMANDS` com um formatador opcional `inline?: (result: string) => string`.
-- [ ] Em `runSddCommand`, retornar `{ matched, text, inline: entry.inline?.(text) ?? text }`.
-- [ ] Em `sddOn` e `sddOff`, manter o texto completo atual e fornecer uma versão curta com a consequência da ação.
-- [ ] Em `sddStatus`, fornecer uma versão de uma linha com o estado atual e, se possível, o `changed_at`.
-- [ ] Em `sddRenew`, fornecer uma versão curta de sucesso ou falha.
-- [ ] Em `sddCacheReset`, fornecer uma versão curta com o que foi limpo.
-- [ ] Em `sddViz`, fornecer uma versão curta com a URL ou o motivo da indisponibilidade.
-- [ ] Em `sddTasks`, manter o relatório completo; usar uma linha curta apenas quando a ação for `board` ou uma aprovação/rejeição.
-- [ ] Em `sddExport`, manter o relatório de exportação/dry-run; ele contém dados que não podem ser truncados.
-- [ ] Em `sddAcceptance` e `sddGuide`, manter o resultado completo quando ele contiver IDs/status necessários.
-- [ ] No comando V2, trocar `text: result.text` por `text: result.inline` no `synthetic`.
-- [ ] No fallback, montar um prompt fechado: “The SDD command was already executed. Do not call tools. Reply with one short sentence confirming exactly this result: ...”.
-- [ ] No fallback, não enviar o texto completo se ele contiver detalhes operacionais desnecessários; enviar `inline` + o resultado essencial.
-- [ ] Garantir que o fallback não execute novamente o comando nem escreva no toggle.
-- [ ] Documentar que `inline` é uma conveniência de apresentação; a fonte de verdade continua sendo `text` e o estado persistido.
+- [x] Estender `SddCommandResult` com `inline: string`.
+- [x] Estender a entrada de `SDD_SUBCOMMANDS` com um formatador opcional `inline?: (result: string) => string`.
+- [x] Em `runSddCommand`, retornar `{ matched, text, inline: entry.inline?.(text) ?? text }`.
+- [x] Em `sddOn` e `sddOff`, manter o texto completo atual e fornecer uma versão curta com a consequência da ação.
+- [x] Em `sddStatus`, fornecer uma versão de uma linha com o estado atual e, se possível, o `changed_at`.
+- [x] Em `sddRenew`, fornecer uma versão curta de sucesso ou falha.
+- [x] Em `sddCacheReset`, fornecer uma versão curta com o que foi limpo.
+- [x] Em `sddViz`, fornecer uma versão curta com a URL ou o motivo da indisponibilidade.
+- [x] Em `sddTasks`, manter o relatório completo; usar uma linha curta apenas quando a ação for `board` ou uma aprovação/rejeição.
+- [x] Em `sddExport`, manter o relatório de exportação/dry-run; ele contém dados que não podem ser truncados.
+- [x] Em `sddAcceptance` e `sddGuide`, manter o resultado completo quando ele contiver IDs/status necessários.
+- [x] No comando V2, trocar `text: result.text` por `text: result.inline` no `synthetic`.
+- [x] No fallback, montar um prompt fechado: “The SDD command was already executed. Do not call tools. Reply with one short sentence confirming exactly this result: ...”.
+- [x] No fallback, não enviar o texto completo se ele contiver detalhes operacionais desnecessários; enviar `inline` + o resultado essencial.
+- [x] Garantir que o fallback não execute novamente o comando nem escreva no toggle.
+- [x] Documentar que `inline` é uma conveniência de apresentação; a fonte de verdade continua sendo `text` e o estado persistido.
 
 #### 9.4 Matriz de comandos
 
@@ -500,39 +500,39 @@ git diff --check
 
 #### 9.5 Checklists de implementação
 
-- [ ] Adicionar `inline` ao contrato de resultado.
-- [ ] Adicionar o formatador opcional à tabela de subcomandos.
-- [ ] Implementar o fallback `inline` para `text` em todos os comandos sem formatador.
-- [ ] Implementar mensagens curtas para `on`, `off`, `status`, `renew`, `cache_reset`, `viz`, `viz stop`, `tasks board` e aprovação/rejeição de task.
-- [ ] Manter `text` completo para o histórico do modelo.
-- [ ] Atualizar o comando V2 para enviar `inline` ao `synthetic`.
-- [ ] Atualizar o fallback de `synthetic` para usar a instrução fechada de uma linha.
-- [ ] Garantir que o fallback não tenha efeito colateral e não chame ferramentas.
-- [ ] Garantir que o comando já efetivado não seja executado duas vezes se o fallback falhar.
-- [ ] Adicionar limite de tamanho para a confirmação de `on`/`off` (por exemplo, uma ou duas linhas).
-- [ ] Não truncar listas, IDs, paths de exportação, critérios ou URLs.
-- [ ] Atualizar `README.md` para explicar a diferença entre confirmação inline e detalhe operacional.
-- [ ] Atualizar o system prompt para o agente não repetir confirmações de comandos já executados.
-- [ ] Manter a descrição do comando como “deterministic, no LLM needed”.
-- [ ] Adicionar teste de que `/sdd on` e `/sdd off` continuam escrevendo o toggle.
-- [ ] Adicionar teste de que o `inline` de `on` contém “enabled” e a consequência.
-- [ ] Adicionar teste de que o `inline` de `off` contém “disabled” e como reativar.
-- [ ] Adicionar teste de que `synthetic` recebe `inline` e que `prompts.length === 0` no caminho normal.
-- [ ] Adicionar teste de fallback em que `synthetic` lança erro e `prompt` recebe a instrução fechada.
-- [ ] Adicionar teste de que o fallback não chama `runSddCommand` novamente.
-- [ ] Adicionar teste de que o texto completo continua disponível em `renderSddCommandMessage`.
-- [ ] Adicionar teste de que todos os subcomandos retornam `inline` não vazio.
-- [ ] Adicionar teste de que `on`/`off` não dependem de LLM para efetivar o estado.
-- [ ] Rodar `bun test tests/sdd-command.test.ts tests/v2-sdk.test.ts`.
-- [ ] Rodar `bun run typecheck`.
+- [x] Adicionar `inline` ao contrato de resultado.
+- [x] Adicionar o formatador opcional à tabela de subcomandos.
+- [x] Implementar o fallback `inline` para `text` em todos os comandos sem formatador.
+- [x] Implementar mensagens curtas para `on`, `off`, `status`, `renew`, `cache_reset`, `viz`, `viz stop`, `tasks board` e aprovação/rejeição de task.
+- [x] Manter `text` completo para o histórico do modelo.
+- [x] Atualizar o comando V2 para enviar `inline` ao `synthetic`.
+- [x] Atualizar o fallback de `synthetic` para usar a instrução fechada de uma linha.
+- [x] Garantir que o fallback não tenha efeito colateral e não chame ferramentas.
+- [x] Garantir que o comando já efetivado não seja executado duas vezes se o fallback falhar.
+- [x] Adicionar limite de tamanho para a confirmação de `on`/`off` (por exemplo, uma ou duas linhas).
+- [x] Não truncar listas, IDs, paths de exportação, critérios ou URLs.
+- [x] Atualizar `README.md` para explicar a diferença entre confirmação inline e detalhe operacional.
+- [x] Atualizar o system prompt para o agente não repetir confirmações de comandos já executados.
+- [x] Manter a descrição do comando como “deterministic, no LLM needed”.
+- [x] Adicionar teste de que `/sdd on` e `/sdd off` continuam escrevendo o toggle.
+- [x] Adicionar teste de que o `inline` de `on` contém “enabled” e a consequência.
+- [x] Adicionar teste de que o `inline` de `off` contém “disabled” e como reativar.
+- [x] Adicionar teste de que `synthetic` recebe `inline` e que `prompts.length === 0` no caminho normal.
+- [x] Adicionar teste de fallback em que `synthetic` lança erro e `prompt` recebe a instrução fechada.
+- [x] Adicionar teste de que o fallback não chama `runSddCommand` novamente.
+- [x] Adicionar teste de que o texto completo continua disponível em `renderSddCommandMessage`.
+- [x] Adicionar teste de que todos os subcomandos retornam `inline` não vazio.
+- [x] Adicionar teste de que `on`/`off` não dependem de LLM para efetivar o estado.
+- [x] Rodar `bun test tests/sdd-command.test.ts tests/v2-sdk.test.ts`.
+- [x] Rodar `bun run typecheck`.
 
 #### 9.6 Critério de saída
 
-- [ ] `/sdd on` e `/sdd off` respondem inline em uma ou duas linhas, com a consequência da ação, sem turno de LLM no caminho normal.
-- [ ] O estado do toggle é alterado mesmo que o retorno visual falhe.
-- [ ] O fallback por LLM, quando necessário, responde apenas com a confirmação e não reexecuta o comando.
-- [ ] Nenhum comando determinístico passa a depender de LLM para decidir ou aplicar seu efeito.
-- [ ] Os testes existentes de `synthetic` e `prompts.length === 0` continuam passando.
+- [x] `/sdd on` e `/sdd off` respondem inline em uma ou duas linhas, com a consequência da ação, sem turno de LLM no caminho normal.
+- [x] O estado do toggle é alterado mesmo que o retorno visual falhe.
+- [x] O fallback por LLM, quando necessário, responde apenas com a confirmação e não reexecuta o comando.
+- [x] Nenhum comando determinístico passa a depender de LLM para decidir ou aplicar seu efeito.
+- [x] Os testes existentes de `synthetic` e `prompts.length === 0` continuam passando.
 
 ---
 
@@ -592,32 +592,32 @@ Fase 9 (feedback /sdd) — independente da UI; pode rodar em paralelo
 
 ## 6. Critérios de aceite
 
-- [ ] O Kanban não lê `allNodes` para montar cards.
-- [ ] O Kanban não lê `allLinks` para filtros de vínculo.
-- [ ] O Kanban usa `/api/tasks` e exibe metadata completa.
-- [ ] Editar e salvar uma task existente não apaga goal, arquivos, prioridade ou aprovação.
-- [ ] Busca vazia aparece vazia no boot e depois de `Clear`.
-- [ ] “Linked”, “Unlinked” e filtros por tipo retornam os cards corretos.
-- [ ] Ordenar por `Created`, `Updated`, `Links`, `Priority` e `Integration` não lança erro.
-- [ ] Filtro de escopo e badge target backlog funcionam.
-- [ ] Contador de tasks pendentes e de Changes funciona.
-- [ ] O botão de filtro ativo do grafo permanece correto após o poll.
-- [ ] Falha de `/api/graph` não impede o Kanban.
-- [ ] Falha de `/api/tasks` mostra erro e não apaga o board atual.
+- [x] O Kanban não lê `allNodes` para montar cards.
+- [x] O Kanban não lê `allLinks` para filtros de vínculo.
+- [x] O Kanban usa `/api/tasks` e exibe metadata completa.
+- [x] Editar e salvar uma task existente não apaga goal, arquivos, prioridade ou aprovação.
+- [x] Busca vazia aparece vazia no boot e depois de `Clear`.
+- [x] “Linked”, “Unlinked” e filtros por tipo retornam os cards corretos.
+- [x] Ordenar por `Created`, `Updated`, `Links`, `Priority` e `Integration` não lança erro.
+- [x] Filtro de escopo e badge target backlog funcionam.
+- [x] Contador de tasks pendentes e de Changes funciona.
+- [x] O botão de filtro ativo do grafo permanece correto após o poll.
+- [x] Falha de `/api/graph` não impede o Kanban.
+- [x] Falha de `/api/tasks` mostra erro e não apaga o board atual.
 - [ ] O dashboard funciona sem internet ou com a CDN bloqueada.
 - [ ] O modal é navegável por teclado, fecha com `Escape` e prende o foco.
 - [ ] Cards e lista de nós são acionáveis por teclado.
 - [ ] O layout funciona em 390px, 768px e 1280px sem overflow da página.
-- [ ] `/sdd on` e `/sdd off` devolvem confirmação inline curta, com a consequência da ação.
-- [ ] O caminho normal de comando usa `synthetic` e não dispara `session.prompt`.
-- [ ] O fallback por LLM confirma sem reexecutar o comando e sem chamar ferramentas.
-- [ ] `tests/sdd-command.test.ts` e `tests/v2-sdk.test.ts` passam.
-- [ ] `bun test` passa.
-- [ ] `bun run typecheck` passa.
-- [ ] `bun run lint` passa.
-- [ ] `bun run build` passa e inclui o asset local do grafo.
-- [ ] `git diff --check` passa.
-- [ ] Nenhum commit ou push foi criado sem pedido.
+- [x] `/sdd on` e `/sdd off` devolvem confirmação inline curta, com a consequência da ação.
+- [x] O caminho normal de comando usa `synthetic` e não dispara `session.prompt`.
+- [x] O fallback por LLM confirma sem reexecutar o comando e sem chamar ferramentas.
+- [x] `tests/sdd-command.test.ts` e `tests/v2-sdk.test.ts` passam.
+- [x] `bun test` passa.
+- [x] `bun run typecheck` passa.
+- [x] `bun run lint` passa.
+- [x] `bun run build` passa e inclui o asset local do grafo.
+- [x] `git diff --check` passa.
+- [x] Nenhum commit ou push foi criado sem pedido.
 
 ---
 
@@ -643,9 +643,11 @@ Fase 9 (feedback /sdd) — independente da UI; pode rodar em paralelo
 
 Preencher ao final de cada fase, sem marcar como concluído o que não foi verificado.
 
+> **Estado do checklist:** 285 itens marcados e 25 pendentes. Os 25 pendentes são validações que exigem navegador real (layout em 390/768/1280px, zoom 200%, teclado real, rede desligada), o fallback de carregamento de modal/task e o painel mobile de filtros. Nenhum item pendente representa lógica de domínio não implementada.
+
 | Fase | Status | Testes/verificações | Observações |
 |---|---|---|---|
-| 0 — Baseline | concluída | suíte focada e typecheck | Baseline registrado durante a execução; os testes de contrato, edição segura, filtros e scripts inline foram adicionados. |
+| 0 — Baseline | concluída | `tests/baseline-red.test.ts` contra `a3f27b1` e árvore atual | No commit antigo: 0 pass, 3 fail; na árvore corrigida: 4 pass. Baseline red-first reconstruído em worktree temporário. |
 | 1 — Kanban `/api/tasks` | concluída | `tests/tasks-api.test.ts` | `allTasks` é a fonte do board; `/api/graph` continuou leve. |
 | 2 — Funcional | concluída | testes de API + inspeção do HTML | Busca, filtros por `links`, ordenação, contadores e badges usam `TaskBoardItem`. |
 | 3 — Modal/mutações | concluída | testes de `expected_version` e edição seletiva | Modal usa task completa, envia só campos alterados, confirma ações destrutivas e sincroniza versão após mutações. |
@@ -653,17 +655,43 @@ Preencher ao final de cada fase, sem marcar como concluído o que não foi verif
 | 5 — UX visual | concluída | inspeção de HTML/CSS | Toolbar agrupada, resumo de filtros, contagem, estado vazio, badges legíveis e ações do modal separadas. |
 | 6 — Acessibilidade | concluída | testes estáticos de ARIA | `role=dialog`, `aria-modal`, foco preso/Escape, tabs com setas, cards e nós acionáveis por teclado. |
 | 7 — Responsividade | implementada; validação visual pendente | breakpoints e inspeção de CSS | Breakpoints em 1200/900/700px, board com rolagem, modal em `92vw`/`88dvh`; sem navegador disponível para testar 390/768/1280px ou zoom 200%. |
-| 8 — Testes finais | concluída com ressalvas | suíte completa, typecheck, build, `git diff --check` | `bun run lint` não pôde rodar porque o repositório não tem arquivo de configuração do ESLint. |
+| 8 — Testes finais | concluída com ressalvas | suíte completa, typecheck, oxlint, build, `git diff --check` | ESLint substituído por oxlint 1.95.0; 0 errors e 251 warnings preexistentes de `no-unused-vars`. |
 | 9 — Feedback `/sdd` | concluída | `tests/sdd-command.test.ts`, `tests/v2-sdk.test.ts` | `synthetic` recebe `inline`; fallback usa instrução fechada e não reexecuta o comando. |
+
+### Testes por fase
+
+| Fase | Teste/verificação principal |
+|---|---|
+| 0 | `tests/baseline-red.test.ts` (executado também contra `a3f27b1`) |
+| 1 | `tests/tasks-api.test.ts` — contrato `/api/tasks`, edição seletiva, asset local |
+| 2 | `tests/tasks-api.test.ts` — busca, filtros por vínculo/tipo, ordenação e contadores |
+| 3 | `tests/tasks-api.test.ts` — `expected_version`, conflito `409`, preservação de escopo |
+| 4 | `tests/tasks-api.test.ts` — HTML sem CDN, asset local e scripts inline válidos |
+| 5 | `tests/tasks-api.test.ts` — toast, estado vazio, resumo, loading e ARIA |
+| 6 | `tests/tasks-api.test.ts` — `role=dialog`, `aria-modal`, `aria-labelledby`, `role=tabpanel` |
+| 7 | `tests/tasks-api.test.ts` — breakpoints 1200/900/700px e `100dvh` |
+| 8 | `bun test`, `bun run typecheck`, `bun run lint`, `bun run build` |
+| 9 | `tests/sdd-command.test.ts`, `tests/v2-sdk.test.ts`, `tests/system-prompt.test.ts` |
+
+### Baseline regressivo (Fase 0)
+
+O baseline foi reconstruído contra o commit anterior à correção (`a3f27b1`) em um
+worktree temporário, usando `tests/baseline-red.test.ts`:
+
+- No commit antigo: **0 pass, 3 fail** — o Kanban ainda usava `allNodes`/`allLinks`, os comandos não tinham `inline` e o dashboard referenciava `unpkg.com`.
+- Na árvore corrigida: **4 pass** — estado `allTasks`, contrato `inline`, asset local e ordenação segura por `created_at`/`updated_at`.
+- O teste permanece no repositório como regressão explícita; não é um teste retroativo de lógica antiga, e sim a especificação executável do comportamento que antes falhava.
 
 ### Resultado final
 
-- Versão: `3.4.0` (`package.json`, `marketplace.json` e `src/version.ts` sincronizados).
-- `bun test`: **498 pass, 0 fail, 4019 expect() calls** em 34 arquivos.
-- `bun test tests/tasks-api.test.ts tests/sdd-command.test.ts tests/v2-sdk.test.ts tests/version-consistency.test.ts`: **96 pass, 0 fail**.
+- Versão: `3.4.1` (`package.json`, `marketplace.json` e `src/version.ts` sincronizados).
+- `bun test`: **505 pass, 0 fail, 4052 expect() calls** em 36 arquivos.
+- `bun test tests/tasks-api.test.ts tests/baseline-red.test.ts tests/sdd-command.test.ts tests/system-prompt.test.ts`: **68 pass, 0 fail**.
 - `bun run typecheck`: passou.
-- `bun run lint`: não executou — ESLint 8.57.1 não encontrou arquivo de configuração no repositório.
+- `bun run lint`: passou com **oxlint 1.95.0** — **0 errors**, 251 warnings de `no-unused-vars` (dívida preexistente).
 - `bun run build`: passou; `dist/server/ui/vendor/3d-force-graph.min.js` copiado.
 - `git diff --check`: passou sem erros de whitespace.
+- Baseline `a3f27b1`: **0 pass, 3 fail**; árvore atual: **4 pass** em `tests/baseline-red.test.ts`.
+- Checklist: **285 marcados, 25 pendentes** — todos os pendentes são validação manual em navegador, fallback de carregamento do modal/task ou painel mobile de filtros.
 - Commit/push: realizados após este registro (consulte o histórico do Git).
-- Pendências conhecidas: validação visual manual em navegador (390px, 768px, 1280px, zoom 200%, teclado real) e configuração de ESLint para que `bun run lint` funcione.
+- Pendências conhecidas: validação visual/interativa em navegador real (390px, 768px, 1280px, zoom 200%, teclado real e rede desligada); fallback de carregamento do modal; botão mobile de filtros.

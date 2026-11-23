@@ -26,42 +26,49 @@ export const KANBAN_STYLE = `
     .kanban { display: flex; gap: 14px; align-items: flex-start; min-height: 100%; }
     .kcol { flex: 1 1 0; min-width: 220px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; display: flex; flex-direction: column; max-height: calc(100dvh - 170px); }
     .kcol.drop-target { border-color: #58a6ff; background: #1c2333; }
-    .kcol-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #21262d; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #8b949e; position: sticky; top: 0; background: #161b22; z-index: 1; border-radius: 10px 10px 0 0; }
+    .kcol-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #21262d; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #a8b3c0; position: sticky; top: 0; background: #161b22; z-index: 1; border-radius: 10px 10px 0 0; }
     .kcol-count { background: #21262d; border-radius: 10px; padding: 1px 8px; font-size: 11px; }
     .kcol-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 60px; }
     .kcard { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; cursor: grab; transition: border-color .2s, transform .1s; }
     .kcard:hover { border-color: #58a6ff; }
     .kcard.dragging { opacity: .5; }
     .kcard-title { font-size: 13px; font-weight: 600; color: #c9d1d9; }
-    .kcard-id { font-size: 10px; color: #8b949e; margin-top: 2px; }
-    .kcard-desc { font-size: 11px; color: #8b949e; margin-top: 6px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .kcard-id { font-size: 10px; color: #a8b3c0; margin-top: 2px; }
+    .kcard-desc { font-size: 11px; color: #a8b3c0; margin-top: 6px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .kanban-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; padding: 10px 14px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; font-size: 12px; }
     .kanban-toolbar input, .kanban-toolbar select { padding: 6px 8px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; font-size: 12px; outline: none; font-family: inherit; }
     .kanban-toolbar input:focus, .kanban-toolbar select:focus { border-color: #58a6ff; }
     .kanban-toolbar .search { min-width: 190px; }
-    .kanban-toolbar .tb-label { color: #8b949e; font-size: 10px; text-transform: uppercase; letter-spacing: .6px; display: block; margin-bottom: 2px; }
+    .kanban-toolbar .tb-label { color: #a8b3c0; font-size: 10px; text-transform: uppercase; letter-spacing: .6px; display: block; margin-bottom: 2px; }
     .kanban-toolbar .tb-group { display: flex; flex-direction: column; gap: 2px; }
+    .kanban-toolbar .tb-group + .tb-group { border-left: 1px solid #30363d; padding-left: 8px; }
     .kanban-toolbar .tb-group-inline { display: flex; align-items: center; gap: 6px; }
     .kanban-toolbar .spacer { flex: 1; }
-    .kanban-result { color: #8b949e; font-size: 11px; }
-    .kanban-summary { color: #8b949e; font-size: 11px; flex-basis: 100%; }
+    .kanban-result { color: #a8b3c0; font-size: 11px; }
+    .kanban-summary { color: #a8b3c0; font-size: 11px; flex-basis: 100%; }
+    .kanban-loading { color: #d29922; font-size: 11px; display: none; }
+    .kanban-loading.visible { display: inline; }
+    .kanban-empty { background: #161b22; border: 1px dashed #30363d; border-radius: 10px; padding: 34px 16px; text-align: center; color: #a8b3c0; font-size: 13px; }
+    .kanban-empty strong { display: block; color: #c9d1d9; font-size: 15px; margin-bottom: 6px; }
+    .kanban-empty .btn { margin-top: 12px; }
     .kcard-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-    .kbadge { font-size: 10.5px; padding: 2px 6px; border-radius: 10px; border: 1px solid #30363d; color: #8b949e; white-space: nowrap; }
+    .kbadge { font-size: 11px; padding: 2px 6px; border-radius: 10px; border: 1px solid #30363d; color: #a8b3c0; white-space: nowrap; }
+    .kcard-foot { color: #a8b3c0; font-size: 10.5px; margin-top: 6px; }
     .kbadge.pending { border-color: #9e6a03; color: #d29922; }
     .kbadge.integrated { border-color: #238636; color: #3fb950; }
-    .kbadge.manual { border-color: #6e7681; color: #8b949e; }
+    .kbadge.manual { border-color: #6e7681; color: #a8b3c0; }
     .kbadge.change-draft { border-color: #9e6a03; color: #d29922; }
     .kbadge.change-approved { border-color: #1f6feb; color: #58a6ff; }
     .kbadge.approved { border-color: #238636; color: #3fb950; }
     .kbadge.rejected { border-color: #da3633; color: #f85149; }
     .kbadge.target-backlog { border-color: #8957e5; color: #d2a8ff; background: #2d1b4e; }
-    .kchange { font-size: 12px; color: #8b949e; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .kempty { color: #6e7681; font-size: 11px; text-align: center; padding: 14px 0; }
+    .kchange { font-size: 12px; color: #a8b3c0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .kempty { color: #a8b3c0; font-size: 11px; text-align: center; padding: 14px 0; }
     .kempty button { margin-top: 8px; }
     .kanban-new { margin-bottom: 12px; }
     .board-alert { background: #3d1d1d; border: 1px solid #da3633; color: #ffb3ad; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .board-alert .btn { padding: 4px 10px; }
-    .btn { padding: 7px 14px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px; transition: all .2s; }
+    .btn { min-height: 36px; padding: 7px 14px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px; transition: all .2s; }
     .btn:hover { border-color: #58a6ff; }
     .btn:disabled { opacity: .5; cursor: wait; }
     .btn.primary { background: #238636; border-color: #238636; color: #fff; }
@@ -72,21 +79,25 @@ export const KANBAN_STYLE = `
     .modal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: min(560px, 92vw); max-height: 88dvh; overflow-y: auto; padding: 20px; position: relative; }
     .modal-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding-right: 28px; }
     .modal h3 { font-size: 15px; color: #58a6ff; }
-    .modal-version { color: #8b949e; font-size: 11px; }
+    .modal-version { color: #a8b3c0; font-size: 11px; }
     .modal-close { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; cursor: pointer; font-size: 18px; line-height: 1; }
     .field { margin-bottom: 12px; }
-    .field label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+    .field label { display: block; font-size: 11px; color: #a8b3c0; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
     .field input, .field select, .field textarea { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; font-size: 13px; outline: none; font-family: inherit; }
     .field input:focus, .field select:focus, .field textarea:focus { border-color: #58a6ff; }
     .field textarea { resize: vertical; min-height: 60px; }
-    .task-links { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #8b949e; }
+    .task-links { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8b3c0; }
     .task-links a { color: #58a6ff; }
     .modal-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; align-items: center; }
     .modal-actions .spacer { flex: 1; }
     .modal-danger { display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #21262d; }
-    .modal-status { font-size: 11px; margin-top: 10px; min-height: 14px; color: #8b949e; }
+    .modal-status { font-size: 11px; margin-top: 10px; min-height: 14px; color: #a8b3c0; }
     .modal-status.error { color: #f85149; }
     .modal-status.ok { color: #3fb950; }
+    .toast { position: fixed; right: 18px; bottom: 18px; z-index: 80; max-width: min(360px, 90vw); padding: 10px 14px; border-radius: 8px; background: #161b22; border: 1px solid #30363d; color: #c9d1d9; font-size: 12px; box-shadow: 0 8px 24px #0008; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .2s, transform .2s; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.ok { border-color: #238636; color: #aff5b4; }
+    .toast.error { border-color: #da3633; color: #ffb3ad; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     @media (max-width: 1200px) {
       .kanban-toolbar .search { min-width: 150px; }
@@ -110,6 +121,8 @@ export const KANBAN_STYLE = `
       .kcol { flex: 0 0 82vw; min-width: 0; }
       .modal { padding: 16px; }
       .modal-actions { position: sticky; bottom: -16px; background: #161b22; padding: 10px 0 2px; }
+      .btn, .tab, .modal-close { min-height: 40px; }
+      .toast { right: 8px; bottom: 8px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
@@ -117,11 +130,13 @@ export const KANBAN_STYLE = `
 `
 
 export const KANBAN_MODAL_HTML = `
+  <div class="toast" id="kanban-toast" role="status" aria-live="polite"></div>
   <div class="modal-backdrop" id="task-modal" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title" tabindex="-1">
       <button class="modal-close" id="task-close" aria-label="Close task dialog">&times;</button>
       <div class="modal-heading">
         <h3 id="task-modal-title">New task</h3>
+        <span class="modal-version" id="task-modal-id"></span>
         <span class="modal-version" id="task-version"></span>
       </div>
       <input type="hidden" id="task-id">
@@ -180,12 +195,12 @@ export const KANBAN_MODAL_HTML = `
         <button class="btn primary" id="task-save">Save</button>
         <button class="btn" id="task-integrate" style="display:none">Integrate with AI</button>
         <button class="btn primary" id="task-approve" style="display:none">Approve task</button>
-        <button class="btn danger" id="task-reject" style="display:none">Reject</button>
         <button class="btn" id="task-change" style="display:none">Open SDD Change</button>
         <div class="spacer"></div>
         <button class="btn" id="task-cancel">Cancel</button>
       </div>
       <div class="modal-danger">
+        <button class="btn danger" id="task-reject" style="display:none">Reject task</button>
         <button class="btn danger" id="task-delete" style="display:none">Delete task</button>
       </div>
       <div class="modal-status" id="task-modal-status" role="status" aria-live="polite"></div>
@@ -221,6 +236,7 @@ export const KANBAN_SCRIPT = `
   var initialForm = null;
   var modalTrigger = null;
   var busy = false;
+  var toastTimer = null;
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(value) {
@@ -230,6 +246,8 @@ export const KANBAN_SCRIPT = `
   }
   function columnForStatus(status) { return STATUS_COLUMN[status] || "backlog"; }
   function taskColumn(task) { return task.column || columnForStatus(task.status); }
+  function taskNodes() { return allTasks; }
+  function refreshBoard() { return loadTasks(false); }
   function isTargetBacklog(task) {
     var meta = task.metadata || {};
     return meta.execution_scope === "target" || meta.purpose === "reverse_engineering";
@@ -324,7 +342,7 @@ export const KANBAN_SCRIPT = `
   function compareText(a, b) { return String(a || "").localeCompare(String(b || "")); }
   function applyFilters() {
     var f = getFilters();
-    var result = allTasks.filter(function (task) { return taskMatches(task, f); });
+    var result = taskNodes().filter(function (task) { return taskMatches(task, f); });
     var dir = f.order === "desc" ? -1 : 1;
     result.sort(function (a, b) {
       var cmp = 0;
@@ -368,6 +386,15 @@ export const KANBAN_SCRIPT = `
     node.textContent = message || "";
   }
 
+  function showToast(message, kind) {
+    var node = el("kanban-toast");
+    if (!node) return;
+    clearTimeout(toastTimer);
+    node.textContent = message || "";
+    node.className = "toast show " + (kind || "ok");
+    toastTimer = setTimeout(function () { node.className = "toast"; }, 3500);
+  }
+
   function renderBoardError() {
     var board = el("kanban-board");
     if (!board) return;
@@ -380,6 +407,9 @@ export const KANBAN_SCRIPT = `
   function loadTasks(showLoading) {
     var requestId = ++taskRequestId;
     var board = el("kanban-board");
+    var loading = el("kanban-loading");
+    if (loading) loading.className = "kanban-loading visible";
+    if (board) board.setAttribute("aria-busy", "true");
     if (showLoading && board && allTasks.length === 0) board.innerHTML = '<div class="kempty">Loading tasks...</div>';
     return fetch("/api/tasks", { headers: { "Accept": "application/json" } })
       .then(function (res) {
@@ -400,6 +430,13 @@ export const KANBAN_SCRIPT = `
         tasksError = error && error.message ? error.message : String(error);
         renderBoardError();
         return false;
+      })
+      .finally(function () {
+        if (requestId !== taskRequestId) return;
+        var loading = el("kanban-loading");
+        if (loading) loading.className = "kanban-loading";
+        var board = el("kanban-board");
+        if (board) board.removeAttribute("aria-busy");
       });
   }
 
@@ -432,6 +469,14 @@ export const KANBAN_SCRIPT = `
     if (tasksError) {
       html += '<div class="board-alert" role="alert"><span>' + escapeHtml(tasksError) + '</span><button class="btn" id="kanban-retry">Retry</button></div>';
     }
+    if (allTasks.length === 0) {
+      html += '<div class="kanban-empty"><strong>No tasks on the board yet</strong>' +
+        'Create the first task to declare its goal, files and priority before any code is written.' +
+        '<br><button class="btn primary" data-add-task="backlog">+ Create first task</button></div>';
+      board.innerHTML = html;
+      wireKanban();
+      return;
+    }
     html += '<div class="kanban">';
     COLUMN_ORDER.forEach(function (column) {
       var items = visible.filter(function (task) { return taskColumn(task) === column; });
@@ -445,7 +490,7 @@ export const KANBAN_SCRIPT = `
         var priority = task.priority || "medium";
         var approval = task.approval && task.approval.status ? task.approval.status : "PENDING";
         var description = task.description || meta.goal || "";
-        html += '<div class="kcard" draggable="true" tabindex="0" role="button" aria-label="' + escapeHtml(task.name + " (" + priority + ", " + columnForStatus(task.status) + ")") + '" data-id="' + escapeHtml(task.id) + '">';
+        html += '<div class="kcard" draggable="true" tabindex="0" role="button" aria-label="' + escapeHtml(task.name + " (" + priority + ", " + taskColumn(task) + ")") + '" data-id="' + escapeHtml(task.id) + '">';
         html += '<div class="kcard-title">' + escapeHtml(task.name) + '</div>';
         html += '<div class="kcard-id">' + escapeHtml(task.id) + '</div>';
         if (description) html += '<div class="kcard-desc">' + escapeHtml(String(description).slice(0, 180)) + '</div>';
@@ -453,14 +498,18 @@ export const KANBAN_SCRIPT = `
         html += badge(priority, "", "Priority");
         html += badge(integration === "manual" ? "not requested" : integration, integration, "AI integration status");
         html += badge(approval.toLowerCase(), approval === "APPROVED" ? "approved" : approval === "REJECTED" ? "rejected" : "pending", "Task approval (write gate)");
+        if (meta.goal) html += badge("goal", "", meta.goal);
         if (isTargetBacklog(task)) html += badge("target backlog", "target-backlog", "Backlog to implement in the target project after the stack is chosen");
         if (task.change_id) {
           var draft = !task.change_status || task.change_status === "DRAFT" || task.change_status === "PROPOSED";
           html += badge(task.change_id + " · " + (task.change_status || "DRAFT"), draft ? "change-draft" : "change-approved", "SDD Change (evolution)");
         }
-        if (meta.files && meta.files.length) html += badge(meta.files.length + " file(s)", "", "Declared files");
-        if ((task.links || []).length) html += badge((task.links || []).length + " link(s)", "", "Linked nodes");
-        html += '</div></div>';
+        html += '</div>';
+        var foot = [];
+        if (meta.files && meta.files.length) foot.push(meta.files.length + " file(s)");
+        if ((task.links || []).length) foot.push((task.links || []).length + " link(s)");
+        if (foot.length) html += '<div class="kcard-foot">' + escapeHtml(foot.join(" · ")) + '</div>';
+        html += '</div>';
       });
       html += '</div></div>';
     });
@@ -511,7 +560,8 @@ export const KANBAN_SCRIPT = `
     api("POST", "/api/tasks/" + encodeURIComponent(id), { column: column }).then(function (res) {
       if (!res.ok) { setAlert((res.data && res.data.error) || "Could not move task.", "error"); return; }
       setAlert("", null);
-      loadTasks(false);
+      showToast("Task moved to " + column.replace("_", " ") + ".", "ok");
+      refreshBoard();
     }).catch(function (e) { setAlert("Could not move task: " + e, "error"); });
   }
 
@@ -580,7 +630,7 @@ export const KANBAN_SCRIPT = `
   }
 
   function refreshCurrentTask() {
-    return loadTasks(false).then(function (loaded) {
+    return refreshBoard().then(function (loaded) {
       if (!loaded || !currentTask) return;
       var latest = allTasks.filter(function (task) { return task.id === currentTask.id; })[0];
       if (!latest) return;
@@ -598,6 +648,7 @@ export const KANBAN_SCRIPT = `
     currentTask = task || null;
     modalTrigger = document.activeElement;
     el("task-modal-title").textContent = task ? "Edit task" : "New task";
+    el("task-modal-id").textContent = task ? task.id : "";
     el("task-version").textContent = task ? "v" + task.version : "";
     el("task-id").value = task ? task.id : "";
     el("task-name").value = task ? task.name : "";
@@ -708,6 +759,7 @@ export const KANBAN_SCRIPT = `
       }
       return refreshCurrentTask().then(function () {
         showStatus("Saved.", "ok");
+        showToast("Task saved.", "ok");
       });
     }).catch(function (e) { showStatus("Failed to save: " + e, "error"); })
       .finally(function () { setBusy(false); });
@@ -721,7 +773,7 @@ export const KANBAN_SCRIPT = `
     showStatus("Deleting...", null);
     api("DELETE", "/api/tasks/" + encodeURIComponent(id)).then(function (res) {
       if (!res.ok) { showStatus((res.data && res.data.error) || "Delete failed", "error"); return; }
-      return loadTasks(false).then(function () { closeTaskModal(true); setAlert("Task deleted.", null); });
+      return refreshBoard().then(function () { closeTaskModal(true); setAlert("Task deleted.", null); showToast("Task deleted.", "ok"); });
     }).catch(function (e) { showStatus("Failed: " + e, "error"); })
       .finally(function () { setBusy(false); });
   }
@@ -743,6 +795,7 @@ export const KANBAN_SCRIPT = `
       var blockers = (res.data && res.data.blockers) || [];
       var detail = blockers.length ? blockers[0] : (integration.reason || "");
       showStatus((change.id ? change.id + " · " + change.status + ". " : "") + detail, blockers.length ? "error" : "ok");
+      if (!blockers.length) showToast(change.id ? "Change " + change.id + " is " + change.status + "." : "Change opened.", "ok");
       return refreshCurrentTask();
     }).catch(function (e) { showStatus("Failed: " + e, "error"); })
       .finally(function () { setBusy(false); });
@@ -758,7 +811,9 @@ export const KANBAN_SCRIPT = `
     api("POST", "/api/tasks/" + encodeURIComponent(id) + (approve ? "/approve" : "/reject"), {}).then(function (res) {
       if (!res.ok) { showStatus((res.data && res.data.error) || ("Error " + res.status), "error"); return; }
       return refreshCurrentTask().then(function () {
-        showStatus(approve ? "Task approved. Declared files are writable." : "Task rejected.", "ok");
+        var message = approve ? "Task approved. Declared files are writable." : "Task rejected. Files remain blocked.";
+        showStatus(message, "ok");
+        showToast(message, "ok");
       });
     }).catch(function (e) { showStatus("Failed: " + e, "error"); })
       .finally(function () { setBusy(false); });
@@ -773,12 +828,19 @@ export const KANBAN_SCRIPT = `
     api("POST", "/api/tasks/" + encodeURIComponent(id) + "/integrate", {}).then(function (res) {
       var integration = (res.data && res.data.integration) || {};
       showStatus(integration.reason || "Integration requested.", integration.queued ? "ok" : null);
+      if (integration.queued) showToast("Integration requested.", "ok");
       return refreshCurrentTask();
     }).catch(function (e) { showStatus("Failed: " + e, "error"); })
       .finally(function () { setBusy(false); });
   }
 
   function onFilterChange() { readToolbar(); renderKanban(); }
+  function onSortChange() {
+    var sort = el("kanban-sort");
+    var order = el("kanban-order");
+    if (sort && order && (sort.value === "created" || sort.value === "updated")) order.value = "desc";
+    onFilterChange();
+  }
   var debounceTimer = null;
   function onSearchInput() {
     clearTimeout(debounceTimer);
@@ -867,10 +929,12 @@ export const KANBAN_SCRIPT = `
     }
     var search = el("kanban-search");
     if (search) search.addEventListener("input", onSearchInput);
-    ["kanban-filter-link", "kanban-filter-integration", "kanban-filter-priority", "kanban-filter-column", "kanban-filter-scope", "kanban-sort", "kanban-order"].forEach(function (id) {
+    ["kanban-filter-link", "kanban-filter-integration", "kanban-filter-priority", "kanban-filter-column", "kanban-filter-scope", "kanban-order"].forEach(function (id) {
       var node = el(id);
       if (node) node.addEventListener("change", onFilterChange);
     });
+    var sortNode = el("kanban-sort");
+    if (sortNode) sortNode.addEventListener("change", onSortChange);
     var reset = el("kanban-reset-filters");
     if (reset) reset.addEventListener("click", function () {
       saveFilters({});

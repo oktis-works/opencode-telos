@@ -124,6 +124,11 @@ The user can control SDD enforcement with these commands (handled automatically 
 - \`/sdd status\` — Show current SDD status
 - \`/sdd viz\` — Start the Knowledge Graph dashboard (3D, real time); \`/sdd viz stop\` stops it
 
+These commands are executed by the plugin before the model sees them. Do not
+repeat their confirmation, restate the result, or call tools to verify a command
+that already ran. Continue with the user's next request; only add detail if the
+user asks for it.
+
 When SDD is disabled, skip the enforcement workflow and implement changes directly.
 When SDD is enabled, ALWAYS follow the SDD-first workflow.
 

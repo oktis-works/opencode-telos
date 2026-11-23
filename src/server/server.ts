@@ -796,6 +796,12 @@ export class SddDashboardServer {
     .detail-section h3 { font-size: 12px; color: #58a6ff; margin-bottom: 8px; }
     .detail-field { font-size: 12px; padding: 4px 0; }
     .detail-field .label { color: #8b949e; }
+    .detail-link { display: block; width: 100%; border: 0; background: transparent; color: #58a6ff; text-align: left; cursor: pointer; font: inherit; font-size: 12px; padding: 4px 0; }
+    .detail-link:hover, .detail-link:focus-visible { text-decoration: underline; outline: 2px solid #58a6ff; outline-offset: 2px; }
+    .detail-copy { padding: 2px 8px; margin-left: 6px; font-size: 11px; }
+    .detail-meta-value { color: #c9d1d9; word-break: break-word; }
+    .detail-json { margin-top: 6px; }
+    .detail-json summary { cursor: pointer; color: #8b949e; font-size: 11px; }
     #graph-container { width: 100%; height: 100%; }
     .graph-overlay { position: absolute; bottom: 12px; left: 12px; background: #161b22ee; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #8b949e; pointer-events: none; max-width: calc(100% - 80px); }
     .graph-overlay.error { border-color: #da3633; color: #ffb3ad; }
@@ -884,7 +890,7 @@ ${KANBAN_STYLE}
       <ul id="node-list" class="node-list"></ul>
     </div>
     <div class="main">
-      <div id="graph-container"></div>
+      <div id="graph-container" role="img" aria-label="3D knowledge graph. Use the node list for keyboard navigation." aria-describedby="graph-overlay"></div>
       <div class="graph-controls">
         <button class="graph-btn details-toggle" id="details-toggle" onclick="toggleDetails()" title="Toggle details" aria-label="Toggle node details">Details</button>
         <button class="graph-btn" onclick="resetView()" title="Reset view" aria-label="Reset graph view">&#x21bb;</button>
@@ -917,6 +923,7 @@ ${KANBAN_STYLE}
       <div class="tb-group"><label class="tb-label" for="kanban-sort">Sort by</label><div class="tb-group-inline"><select id="kanban-sort"><option value="column">Column</option><option value="priority">Priority</option><option value="name">Name</option><option value="updated">Updated</option><option value="created">Created</option><option value="links">Links</option><option value="integration">Integration</option></select><select id="kanban-order" aria-label="Sort direction"><option value="asc">↑</option><option value="desc">↓</option></select></div></div>
       <button class="btn" id="kanban-reset-filters" style="margin-left:auto">Clear</button>
       <span class="kanban-result" id="kanban-result" role="status" aria-live="polite"></span>
+      <span class="kanban-loading" id="kanban-loading">Refreshing tasks...</span>
       <span class="kanban-summary" id="kanban-filter-summary"></span>
     </div>
     <div id="kanban-alert" role="alert"></div>
@@ -1079,6 +1086,11 @@ ${KANBAN_MODAL_HTML}
         filteredNodes = filteredNodes.filter(function(n) {
           return n.name.toLowerCase().indexOf(q) !== -1 || n.id.toLowerCase().indexOf(q) !== -1 || n.type.toLowerCase().indexOf(q) !== -1;
         });
+      }
+      if (selectedNodeId && !filteredNodes.some(function(n) { return n.id === selectedNodeId; })) {
+        selectedNodeId = null;
+        var detailsPanel = document.getElementById("details");
+        if (detailsPanel) detailsPanel.innerHTML = '<h2>Node Details</h2><p style="color:#8b949e;font-size:13px">The selected node is hidden by the current filter.</p>';
       }
       var nodeIds = new Set(filteredNodes.map(function(n) { return n.id; }));
       var filteredLinks = allLinks.filter(function(l) { return nodeIds.has(l.from) && nodeIds.has(l.to); });
@@ -1248,14 +1260,21 @@ ${KANBAN_MODAL_HTML}
       var incoming = rels.filter(function(r) { return r.to === node.id; });
       var html = "<h2>Node Details</h2>" +
         '<div class="detail-section"><h3>Info</h3>' +
-        '<div class="detail-field"><span class="label">ID:</span> ' + escapeHtml(node.id) + "</div>" +
+        '<div class="detail-field"><span class="label">ID:</span> ' + escapeHtml(node.id) +
+        ' <button class="btn detail-copy" data-copy-id="' + escapeHtml(node.id) + '">Copy ID</button></div>' +
         '<div class="detail-field"><span class="label">Type:</span> <span class="legend-dot" style="background:' + getColor(node.type) + ';display:inline-block;vertical-align:middle;margin-right:4px"></span>' + escapeHtml(node.type) + "</div>" +
         '<div class="detail-field"><span class="label">Name:</span> ' + escapeHtml(node.name) + "</div>" +
         '<div class="detail-field"><span class="label">Status:</span> <span class="node-status status-' + escapeHtml(node.status) + '">' + escapeHtml(node.status) + "</span></div>" +
         '<div class="detail-field"><span class="label">Version:</span> ' + escapeHtml(node.version) + "</div>";
       if (node.description) html += '<div class="detail-field"><span class="label">Description:</span> ' + escapeHtml(node.description) + "</div>";
       if (node.metadata && Object.keys(node.metadata).length > 0) {
-        html += '<div class="detail-field"><span class="label">Metadata:</span> <pre style="font-size:11px;color:#8b949e;white-space:pre-wrap;margin-top:4px">' + escapeHtml(JSON.stringify(node.metadata, null, 2)) + "</pre></div>";
+        html += '<div class="detail-section"><h3>Metadata</h3>';
+        Object.keys(node.metadata).forEach(function(key) {
+          var value = node.metadata[key];
+          var text = typeof value === "string" ? value : JSON.stringify(value);
+          html += '<div class="detail-field"><span class="label">' + escapeHtml(key) + ':</span> <span class="detail-meta-value">' + escapeHtml(text) + "</span></div>";
+        });
+        html += '<details class="detail-json"><summary>Raw JSON</summary><pre style="font-size:11px;color:#8b949e;white-space:pre-wrap;margin-top:4px">' + escapeHtml(JSON.stringify(node.metadata, null, 2)) + "</pre></details></div>";
       }
       html += "</div>";
       if (acceptance && Array.isArray(acceptance.criteria)) {
@@ -1278,17 +1297,28 @@ ${KANBAN_MODAL_HTML}
       html += '<button class="btn primary" data-guide-node="' + escapeHtml(node.id) + '">Record guidance</button></div>';
       if (outgoing.length) {
         html += '<div class="detail-section"><h3>Outgoing (' + outgoing.length + ')</h3>';
-        outgoing.forEach(function(r) { html += '<div class="detail-field" style="cursor:pointer" data-goto="' + escapeHtml(r.to) + '">' + escapeHtml(r.type) + " &rarr; " + escapeHtml(r.to) + "</div>"; });
+        outgoing.forEach(function(r) { html += '<button type="button" class="detail-link" data-goto="' + escapeHtml(r.to) + '">' + escapeHtml(r.type) + " &rarr; " + escapeHtml(r.to) + "</button>"; });
         html += "</div>";
       }
       if (incoming.length) {
         html += '<div class="detail-section"><h3>Incoming (' + incoming.length + ')</h3>';
-        incoming.forEach(function(r) { html += '<div class="detail-field" style="cursor:pointer" data-goto="' + escapeHtml(r.from) + '">' + escapeHtml(r.type) + " &larr; " + escapeHtml(r.from) + "</div>"; });
+        incoming.forEach(function(r) { html += '<button type="button" class="detail-link" data-goto="' + escapeHtml(r.from) + '">' + escapeHtml(r.type) + " &larr; " + escapeHtml(r.from) + "</button>"; });
         html += "</div>";
       }
       el.innerHTML = html;
       el.querySelectorAll("[data-goto]").forEach(function(el) {
         el.addEventListener("click", function() { selectNode(this.getAttribute("data-goto")); });
+      });
+      el.querySelectorAll("[data-copy-id]").forEach(function(button) {
+        button.addEventListener("click", function() {
+          var id = this.getAttribute("data-copy-id");
+          var done = function() { button.textContent = "Copied"; setTimeout(function() { button.textContent = "Copy ID"; }, 1500); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(id).then(done).catch(function() { button.textContent = "Copy failed"; });
+          } else {
+            button.textContent = "Copy unavailable";
+          }
+        });
       });
       el.querySelectorAll("[data-accept]").forEach(function(button) {
         button.addEventListener("click", function() {
@@ -1325,7 +1355,12 @@ ${KANBAN_MODAL_HTML}
       fg.nodeOpacity(0.9);
       fg.nodeVal(function(n) { return n.id === id ? 8 : 6; });
       fg.linkOpacity(0.6);
-      fg.linkWidth(1);
+      fg.linkColor(function(l) {
+        return id && (linkSourceId(l) === id || linkTargetId(l) === id) ? "#58a6ff" : "#30363d";
+      });
+      fg.linkWidth(function(l) {
+        return id && (linkSourceId(l) === id || linkTargetId(l) === id) ? 2 : 1;
+      });
     }
 
     function clearHighlight() {
@@ -1335,6 +1370,7 @@ ${KANBAN_MODAL_HTML}
       fg.nodeOpacity(0.9);
       fg.nodeVal(6);
       fg.linkOpacity(0.6);
+      fg.linkColor(function() { return "#30363d"; });
       fg.linkWidth(1);
       fg.linkDirectionalParticles(0);
     }
@@ -1392,6 +1428,11 @@ ${KANBAN_MODAL_HTML}
         .d3VelocityDecay(isLargeGraph ? 0.5 : 0.3)
         .enablePointerInteraction(true)
         .showNavInfo(false);
+
+      var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduceMotion && typeof fg.pauseAnimation === "function") {
+        setTimeout(function() { if (fg && typeof fg.pauseAnimation === "function") fg.pauseAnimation(); }, 1200);
+      }
 
       window.addEventListener("resize", function() {
         if (fg && container) {

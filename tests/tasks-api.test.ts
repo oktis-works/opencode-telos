@@ -313,7 +313,14 @@ describe("dashboard task API", () => {
     expect(html).toContain('aria-labelledby="task-modal-title"')
     expect(html).toContain('role="tabpanel"')
     expect(html).toContain('aria-live="polite"')
+    expect(html).toContain('id="kanban-toast"')
+    expect(html).toContain('id="kanban-loading"')
+    expect(html).toContain("kanban-empty")
+    expect(html).toContain("onSortChange")
+    expect(html).toContain("prefers-reduced-motion")
+    expect(html).toContain('aria-label="3D knowledge graph')
     expect(html).toContain("task-links")
+    expect(html).toContain('id="task-column"')
     expect(html).toContain("@media (max-width: 700px)")
 
     // The static shell (everything before the first <script>) must be balanced.

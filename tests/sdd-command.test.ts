@@ -8,6 +8,8 @@ import {
   renderSddCommandMessage,
 } from "../src/opencode/command.js"
 import { annotateToolDefinition } from "../src/opencode/sdd-runtime.js"
+import { createRepository } from "../src/sdd/persistence/repository.js"
+import { createTask } from "../src/sdd/tasks/board.js"
 
 describe("extractSddCommandText", () => {
   test("detects raw command forms", () => {
@@ -91,6 +93,39 @@ describe("runSddCommand", () => {
     const result = runSddCommand(dir, "sdd")
     expect(result.matched).toBe(true)
     expect(result.text).toContain("Command Panel")
+  })
+})
+
+describe("/sdd tasks inline confirmations", () => {
+  let dir: string
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "sdd-tasks-inline-"))
+    const repo = createRepository(dir)
+    repo.createProject("inline-test", "Inline Test", "", "greenfield")
+    const graph = repo.loadGraph()
+    createTask(graph, { name: "Approve me", files: ["src/approve.ts"] })
+    createTask(graph, { name: "Reject me", files: ["src/reject.ts"] })
+    repo.saveGraph(graph)
+  })
+
+  test("approve returns a short consequence without truncating the report", () => {
+    const result = runSddCommand(dir, "sdd tasks approve inline-test-TASK-001")
+    expect(result.matched).toBe(true)
+    expect(result.inline).toContain("TASK-001")
+    expect(result.inline).toContain("approved")
+    expect(result.inline).toContain("writable")
+    expect(result.inline).not.toContain("Dossier")
+    expect(result.text).toContain("Dossier")
+  })
+
+  test("reject returns the task ID and the blocked consequence", () => {
+    const result = runSddCommand(dir, "sdd tasks reject inline-test-TASK-002")
+    expect(result.matched).toBe(true)
+    expect(result.inline).toContain("TASK-002")
+    expect(result.inline).toContain("rejected")
+    expect(result.inline).toContain("blocked")
+    expect(result.text).toContain("Dossier")
   })
 })
 

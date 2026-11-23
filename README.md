@@ -568,6 +568,11 @@ requests and non-loopback `Host` headers.
 | `GET /api/events` | Server-sent event stream (live dashboard updates) |
 | `GET /ui/3d-force-graph.min.js` | Local 3D graph asset served by the dashboard |
 
+The Kanban supports drag-and-drop, but the task modal's **Column** select is the
+keyboard-accessible alternative: changing the column and saving moves the task
+without a pointer. Cards and nodes are also reachable with `Tab` and open with
+`Enter` or `Space`.
+
 ## Available tools
 
 The tables below use the **canonical** name of each tool (for example
@@ -1385,7 +1390,7 @@ bun run typecheck
 # Compile (generates dist/)
 bun run build
 
-# Lint (noUnusedLocals/noUnusedParameters)
+# Lint with oxlint (fast Rust-based ESLint-compatible checks)
 bun run lint
 
 # Run tests
