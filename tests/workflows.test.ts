@@ -39,6 +39,16 @@ describe("Workflow Chains", () => {
     expect(toolNames).toContain("sdd.complete_change")
   })
 
+  test("reverse engineering never infers purpose from discover output", () => {
+    const chain = ALL_CHAINS.find((c) => c.name === "sdd.workflow_reverse_engineer")!
+    const step = chain.steps.find((s) => s.tool === "sdd.reverse_engineer")!
+    const discoverOutput = "Purpose of the SDD: Complete documentation / Reverse engineering"
+    const args = typeof step.args === "function"
+      ? step.args(discoverOutput, {}, [{ tool: "sdd.discover", result: discoverOutput, stepId: "s1", status: "completed" }])
+      : step.args
+    expect(args.purpose).toBeUndefined()
+  })
+
   test("workflow_refactor has enforce, validate, approve, generate, verify, complete", () => {
     const chain = ALL_CHAINS.find((c) => c.name === "sdd.workflow_refactor")!
     const toolNames = chain.steps.map((s) => s.tool)

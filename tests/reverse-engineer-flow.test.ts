@@ -1,10 +1,11 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test"
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "fs"
+import { existsSync, mkdtempSync, rmSync, mkdirSync, writeFileSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
 import { createSddTools } from "../src/opencode/tools.js"
 import { checkToolAccess, resetWorkflowState } from "../src/sdd/enforcement/workflow-tracker.js"
 import { createRepository } from "../src/sdd/persistence/repository.js"
+import { approveTask } from "../src/sdd/tasks/board.js"
 
 /**
  * Reverse engineering is a graph bootstrap: it must be callable from a clean
@@ -96,6 +97,26 @@ describe("reverse engineering flow", () => {
     const semantic = new Set(["specifies", "implements", "operates_on", "belongs_to"])
     expect(graph.relationships.every((r) => typeof r.type === "string")).toBe(true)
     expect(graph.relationships.every((r) => !semantic.has(r.type) || graph.nodes.some((n) => n.id === r.to))).toBe(true)
+
+    // Reverse engineering produces a target backlog, not cards executable in
+    // the source repository. The scan must still write their dossiers.
+    const targetTasks = graph.nodes.filter((n) => n.type === "task" && (n.metadata as any).purpose === "reverse_engineering")
+    expect(targetTasks.length).toBeGreaterThan(0)
+    expect(targetTasks.every((task) => (task.metadata as any).execution_scope === "target")).toBe(true)
+    expect(targetTasks.every((task) => !(task.metadata as any).files?.length)).toBe(true)
+    expect(existsSync(join(dir, ".sdd", "tasks", targetTasks[0].id, "README.md"))).toBe(true)
+    expect(() => approveTask(graph, targetTasks[0].id)).toThrow(/target backlog/i)
+  })
+
+  test("the chain fails closed instead of inferring purpose from the discover question", async () => {
+    const tools = createSddTools()
+    const ctx = { directory: dir, sessionID: "reverse-chain-no-purpose" }
+    const chain = tools["sdd.workflow_reverse_engineer"]
+    const output = (await (chain as any).execute({}, ctx)) as string
+
+    // The discover output contains both option labels; that is a question, not
+    // an answer. Without an explicit purpose the scan must not run.
+    expect(output).toContain("purpose is required")
   })
 
   test("the sdd.workflow_reverse_engineer chain runs end-to-end", async () => {

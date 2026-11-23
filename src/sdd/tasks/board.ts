@@ -19,6 +19,7 @@ import type {
   KnowledgeGraph,
   NodeStatus,
   RelationshipType,
+  SddPurpose,
   TaskNode,
 } from "../domain/types.js"
 import { addNode, addRelationship, getNode, removeNode, updateNode } from "../graph/engine.js"
@@ -30,6 +31,9 @@ export type TaskColumn = "backlog" | "ready" | "in_progress" | "blocked" | "done
 export type IntegrationStatus = "pending" | "integrated" | "manual"
 
 export type TaskApprovalStatus = "PENDING" | "APPROVED" | "REJECTED"
+
+/** Where the task will be implemented: the documented repo or the target repo. */
+export type TaskExecutionScope = "source" | "target"
 
 export interface TaskApproval {
   status: TaskApprovalStatus
@@ -201,6 +205,12 @@ export function approveTask(graph: KnowledgeGraph, id: string, actor?: string, n
     ? (metadata.files as unknown[]).filter((file): file is string => typeof file === "string" && file.trim().length > 0)
     : []
   if (files.length === 0) {
+    if (metadata.execution_scope === "target") {
+      throw new Error(
+        `Task ${id} belongs to the reverse-engineering target backlog and has no target files yet. ` +
+          "Choose the target stack, declare the target files, then approve it.",
+      )
+    }
     throw new Error(
       `Task ${id} declares no files. Declare the files it will write before approving it.`,
     )
@@ -479,6 +489,10 @@ export interface CreateTaskInput {
   link_type?: RelationshipType
   origin?: string
   integration_status?: IntegrationStatus
+  /** Brownfield mode that produced the task. */
+  purpose?: SddPurpose
+  /** `source` writes in the documented repo; `target` belongs to the rebuilt system. */
+  execution_scope?: TaskExecutionScope
 }
 
 function linkTask(
@@ -535,6 +549,8 @@ export function createTask(graph: KnowledgeGraph, input: CreateTaskInput): TaskN
     created_in_phase: getProjectLifecycle(graph).phase,
     change_required: isBaselineComplete(graph),
   }
+  if (input.purpose) metadata.purpose = input.purpose
+  if (input.execution_scope) metadata.execution_scope = input.execution_scope
   if (input.goal) metadata.goal = input.goal
   if (input.files?.length) metadata.files = input.files
   if (input.acceptance?.length) metadata.legacy_acceptance = input.acceptance

@@ -18,6 +18,7 @@ import {
   approveTask,
   createTask,
   getTask,
+  isTaskApproved,
   queryTasks,
   markTaskIntegrated,
   rejectTask,
@@ -303,11 +304,16 @@ export function handleOpenChange(projectDir: string, id: string, raw: unknown): 
 
     const task = getTask(graph, id)
     const integration = result.approved && task
-      ? requestAgentTurn(
-          buildChangeImplementationPrompt(result.change, task),
-          "change implementation",
-          { projectDir, dedupeKey: `${projectDir}:change:${result.change.id}` },
-        )
+      ? isTaskApproved(task)
+        ? requestAgentTurn(
+            buildChangeImplementationPrompt(result.change, task),
+            "change implementation",
+            { projectDir, dedupeKey: `${projectDir}:change:${result.change.id}` },
+          )
+        : {
+            queued: false,
+            reason: `Change ${result.change.id} approved, but task ${task.id} is not approved. Task approval is the write gate.`,
+          }
       : {
           queued: false,
           reason: result.blockers[0] ?? "Change created without approval.",

@@ -11,7 +11,7 @@ import type {
   SddPurpose,
 } from "../domain/types.js"
 import { addNode, addRelationship, getNode, updateNode } from "../graph/engine.js"
-import { createTask, type TaskPriority } from "../tasks/board.js"
+import { createTask, isTaskApproved, type TaskPriority } from "../tasks/board.js"
 import type { BrownfieldAnalysis } from "./scanner.js"
 
 export interface FindingInput {
@@ -235,6 +235,8 @@ export function createFindingTask(
     link_type: options.targetNodeId ? "implements" : "resolves",
     origin: options.purpose === "documentation" ? "documentation_finding" : "reverse_engineering_target",
     integration_status: "pending",
+    purpose: options.purpose,
+    execution_scope: options.purpose === "documentation" ? "source" : "target",
   })
   ;(task.metadata as Record<string, unknown>).finding_id = finding.id
   ;(task.metadata as Record<string, unknown>).purpose = options.purpose
@@ -253,6 +255,40 @@ export function resolveFinding(graph: KnowledgeGraph, input: FindingResolutionIn
   }
   if ((status === "resolved" || status === "closed") && finding.metadata.purpose === "reverse_engineering" && !(input.targetNodeIds?.length || input.changeId || input.taskId)) {
     throw new Error("Reverse-engineering findings require target_node_ids, change_id, or task_id before they can be marked resolved.")
+  }
+  if (input.taskId) {
+    const task = getNode(graph, input.taskId)
+    if (!task || task.type !== "task") {
+      throw new Error(`Task ${input.taskId} not found; a finding can only reference an existing task.`)
+    }
+    // A documentation finding means the defect was fixed in the documented
+    // repository. That requires the same human authorization as any other
+    // source write: an APPROVED task. A Change is the alternative path.
+    if (
+      (status === "resolved" || status === "closed") &&
+      finding.metadata.purpose === "documentation" &&
+      !input.changeId &&
+      !isTaskApproved(task)
+    ) {
+      throw new Error(
+        `Task ${input.taskId} is not approved. Approve the task (or provide a change_id) before resolving a documentation finding.`,
+      )
+    }
+  }
+  if (input.changeId) {
+    const change = getNode(graph, input.changeId)
+    if (!change || change.type !== "change") {
+      throw new Error(`Change ${input.changeId} not found; a finding can only reference an existing Change.`)
+    }
+  }
+  for (const targetNodeId of input.targetNodeIds ?? []) {
+    const target = getNode(graph, targetNodeId)
+    if (!target) throw new Error(`Target node ${targetNodeId} not found; a finding can only reference an existing target node.`)
+    if (!["requirement", "decision", "constraint"].includes(target.type)) {
+      throw new Error(
+        `Target node ${targetNodeId} has type ${target.type}; reverse-engineering findings must point to a requirement, decision or constraint.`,
+      )
+    }
   }
   const metadata = finding.metadata
   const resolutionEvidence = input.evidence ?? []

@@ -258,16 +258,17 @@ export const REVERSE_ENGINEERING_CHAIN: WorkflowChain = {
     "Asks the user whether to document the system as-is (purpose=documentation) " +
     "or to produce a technology-agnostic spec for rebuilding (purpose=reverse_engineering). " +
     "NEVER assume a purpose — the first step is always sdd.discover so the user " +
-    "is asked via the question tool before any scan runs.",
+    "is asked via the question tool before any scan runs. The confirmed answer " +
+    "must be passed as `purpose`; the chain does not infer it from discover output.",
   params: [
     {
       name: "purpose",
       type: "string",
       description:
-        "documentation = document the existing system as-is. " +
+        "REQUIRED at call time. documentation = document the existing system as-is. " +
         "reverse_engineering = create a technology-agnostic spec for rebuilding. " +
-        "If not provided by the user, sdd.discover will ask via the question tool first.",
-      required: false,
+        "Ask the user via sdd.discover and pass the confirmed answer; the chain never infers the purpose.",
+      required: true,
     },
     { name: "focus_dirs", type: "string", description: "Directories to focus on (optional, comma-separated)", required: false },
   ],
@@ -287,23 +288,16 @@ export const REVERSE_ENGINEERING_CHAIN: WorkflowChain = {
     },
     {
       tool: "sdd.reverse_engineer",
-      args: (_prev, initial, steps) => {
-        // Try to extract purpose from the discover step output so that the
-        // user's answer propagates automatically; fall back to the param
-        // explicitly passed to the chain. Never default silently.
-        const discoverOutput = steps.find(s => s.tool === "sdd.discover")?.result ?? ""
-        const purposeFromDiscovery =
-          /reverse[_\s]?engineer/i.test(discoverOutput) ? "reverse_engineering" :
-          /documentat/i.test(discoverOutput) ? "documentation" : undefined
-
-        const resolved = purposeFromDiscovery ?? (initial.purpose ? String(initial.purpose) : undefined)
-        if (!resolved) {
-          // Safeguard: if purpose could not be determined, default to
-          // documentation (the least destructive mode) and surface a warning.
-          return { purpose: "documentation", focus_dirs: initial.focus_dirs ? String(initial.focus_dirs) : undefined }
-        }
+      args: (_prev, initial) => {
+        // The discover output contains the question AND both option labels, so
+        // it is not an answer. Only the explicit chain parameter is trustworthy;
+        // sdd.reverse_engineer fails closed when it is missing.
+        const declared = initial.purpose
+        const purpose = declared === "documentation" || declared === "reverse_engineering"
+          ? declared
+          : undefined
         return {
-          purpose: resolved as "documentation" | "reverse_engineering",
+          purpose,
           focus_dirs: initial.focus_dirs ? String(initial.focus_dirs) : undefined,
         }
       },

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { createSddTools } from "../src/opencode/tools"
@@ -8,15 +8,28 @@ import { SqliteGraphRepository } from "../src/sdd/persistence/sqlite"
 import { YamlGraphRepository } from "../src/sdd/persistence/yaml"
 import { createGraph } from "../src/sdd/graph/engine"
 import { generateDocumentation } from "../src/sdd/documentation/generator"
+import { resolveFinding } from "../src/sdd/brownfield/findings"
+import { approveTask } from "../src/sdd/tasks/board"
 import { resetWorkflowState } from "../src/sdd/enforcement/workflow-tracker"
 
 function seedProject(dir: string): void {
-  mkdirSync(join(dir, "src"), { recursive: true })
+  mkdirSync(join(dir, "src", "api"), { recursive: true })
+  mkdirSync(join(dir, "src", "models"), { recursive: true })
   writeFileSync(join(dir, "src", "service.ts"), [
     "export function run(input: any) {",
     "  // TODO: define the production policy",
     "  console.log(input)",
     "  try { return input.value } catch {}",
+    "}",
+  ].join("\n"))
+  writeFileSync(join(dir, "src", "api", "users.ts"), [
+    "router.get('/users', listUsers)",
+    "export async function listUsers() { return [] }",
+  ].join("\n"))
+  writeFileSync(join(dir, "src", "models", "user.ts"), [
+    "export interface User {",
+    "  id: string",
+    "  email: string",
     "}",
   ].join("\n"))
   writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "brownfield-fixture" }))
@@ -44,6 +57,11 @@ describe("brownfield findings lifecycle", () => {
     expect(findings.length).toBeGreaterThan(0)
     expect(findings.every((finding) => finding.status === "open")).toBe(true)
     expect(tasks.length).toBe(findings.length)
+    expect(tasks.every((task) => task.name.startsWith("Corrigir descoberta:"))).toBe(true)
+    expect(tasks.every((task) => (task.metadata as any).purpose === "documentation")).toBe(true)
+    expect(tasks.every((task) => (task.metadata as any).execution_scope === "source")).toBe(true)
+    expect(tasks.every((task) => existsSync(join(dir, ".sdd", "tasks", task.id, "README.md")))).toBe(true)
+    expect(existsSync(join(dir, ".sdd", "tasks", "index.md"))).toBe(true)
     expect(graph.relationships.some((rel) => rel.type === "tracked_by")).toBe(true)
 
     const documentation = generateDocumentation(graph, { type: "architecture" })
@@ -54,9 +72,32 @@ describe("brownfield findings lifecycle", () => {
   test("documentation resolution preserves history and traceability", async () => {
     const tools = createSddTools()
     await (tools["sdd.reverse_engineer"] as any).execute({ purpose: "documentation" }, { directory: dir, sessionID: "docs-resolve" })
-    const before = createRepository(dir).loadGraph()
-    const finding = before.nodes.find((node) => node.type === "finding")!
-    const task = before.nodes.find((node) => node.type === "task" && (node.metadata as any).finding_id === finding.id)!
+    const repo = createRepository(dir)
+    const before = repo.loadGraph()
+    const task = before.nodes.find(
+      (node) =>
+        node.type === "task" &&
+        (node.metadata as any).finding_id &&
+        ((node.metadata as any).files?.length ?? 0) > 0,
+    )!
+    const finding = before.nodes.find((node) => node.id === (task.metadata as any).finding_id)!
+
+    expect(() => resolveFinding(before, {
+      findingId: finding.id,
+      description: "Tentativa sem aprovação da task.",
+      taskId: task.id,
+      evidence: [{ kind: "task", node_id: task.id }],
+    })).toThrow(/not approved/i)
+
+    expect(() => resolveFinding(before, {
+      findingId: finding.id,
+      description: "Tentativa com Change inexistente.",
+      changeId: "CHG-missing",
+    })).toThrow(/Change CHG-missing not found/i)
+
+    approveTask(before, task.id, "test")
+    repo.saveGraph(before)
+
     const output = await (tools["sdd.findings"] as any).execute({
       action: "resolve",
       finding_id: finding.id,
@@ -88,6 +129,14 @@ describe("brownfield findings lifecycle", () => {
     expect(graph.relationships.some((rel) => rel.type === "derived_from")).toBe(true)
     expect(graph.relationships.some((rel) => rel.type === "resolves")).toBe(true)
     expect(targetTasks.every((task) => !(task.metadata as any).files?.length)).toBe(true)
+    expect(targetTasks.every((task) => (task.metadata as any).execution_scope === "target")).toBe(true)
+    expect(existsSync(join(dir, ".sdd", "tasks", targetTasks[0].id, "README.md"))).toBe(true)
+
+    expect(() => resolveFinding(graph, {
+      findingId: findings[0].id,
+      description: "Tentativa com nó-alvo inexistente.",
+      targetNodeIds: ["REQ-missing"],
+    })).toThrow(/Target node REQ-missing not found/i)
   })
 
   test("reverse engineering blocks implementation when a critical finding is reopened", async () => {

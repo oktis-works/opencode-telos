@@ -413,6 +413,8 @@ function buildTaskNodes(
         link_type: targets[0] ? "implements" : undefined,
         origin: "briefing",
         integration_status: "pending",
+        purpose: taskInput.purpose,
+        execution_scope: taskInput.execution_scope,
       })
     } catch {
       // A manually created task may already have the same name. Treat that as
@@ -843,9 +845,14 @@ export function buildGraphFromAnalysis(
   byType.requirement = buildRequirementNodes(graph, analysis.requirements, primaryDomainId)
   progressEmitter.stepProgress("requirements", `Created ${byType.requirement} requirement nodes`, undefined, buildId)
 
+  // Documentation describes the system as it already is. It must not create a
+  // synthetic implementation backlog; only explicit tasks are allowed, and the
+  // brownfield findings lifecycle creates its own remediation cards.
   const taskInputs = analysis.tasks?.length
     ? analysis.tasks
-    : analysis.requirements.length > 0
+    : analysis.purpose === "documentation"
+      ? []
+      : analysis.requirements.length > 0
       ? analysis.requirements.map((requirement) => ({
         name: `Implement ${requirement.name}`,
         description: `Implement the behaviour specified by ${requirement.name}.`,

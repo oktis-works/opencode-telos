@@ -19,6 +19,7 @@ import {
 } from "../sdd/tasks/board.js"
 import { formatOpenChangeResult, openChangeForTask } from "../sdd/tasks/change-bridge.js"
 import { writeTaskDossier } from "../sdd/tasks/dossier.js"
+import { exportTargetBacklog, formatTargetExport } from "../sdd/tasks/target-export.js"
 import {
   startSharedDashboard,
   stopSharedDashboard,
@@ -53,7 +54,7 @@ import { transitionFinalAcceptance } from "../sdd/acceptance/final.js"
 
 export const SDD_COMMAND_NAME = "sdd"
 export const SDD_COMMAND_DESCRIPTION =
-  "SDD command hub: enable/disable enforcement, show status, open the dashboard, or reset caches (deterministic, no LLM needed)."
+  "SDD command hub: enable/disable enforcement, show status, open the dashboard, export the target backlog, or reset caches (deterministic, no LLM needed)."
 
 export interface SddCommandInput {
   command: string
@@ -63,7 +64,16 @@ export interface SddCommandInput {
 
 export interface SddCommandResult {
   matched: boolean
+  /** Full deterministic result, used in model context and diagnostics. */
   text: string
+  /** Short inline confirmation; falls back to `text` when there is no safe summary. */
+  inline: string
+}
+
+/** First Markdown heading, used as a compact command acknowledgement. */
+function headline(text: string): string {
+  const line = text.split("\n").find((entry) => /^##\s+/.test(entry.trim()))
+  return line ? line.replace(/^##\s+/, "").trim() : text.split("\n")[0].trim()
 }
 
 /**
@@ -81,19 +91,28 @@ export interface SddSubcommand {
   takesArgs: boolean
   summary: string
   handler: (projectDir: string, input: SddCommandInput) => string
+  /** Optional short message for the inline command result. */
+  inline?: (result: string) => string
 }
 
 const SDD_SUBCOMMANDS: readonly SddSubcommand[] = [
   { aliases: ["panel", "help"], takesArgs: false, summary: "Show this panel.", handler: sddPanel },
-  { aliases: ["on", "enable"], takesArgs: false, summary: "Enable SDD enforcement (deterministic).", handler: sddOn },
-  { aliases: ["off", "disable"], takesArgs: false, summary: "Disable SDD enforcement (deterministic).", handler: sddOff },
-  { aliases: ["status"], takesArgs: false, summary: "Show current toggle state.", handler: sddStatus },
-  { aliases: ["renew"], takesArgs: false, summary: "Renew the active workflow window (keeps the same Change).", handler: sddRenew },
-  { aliases: ["cache_reset", "cachereset"], takesArgs: false, summary: "Clear caches without killing the session (deterministic).", handler: sddCacheReset },
+  { aliases: ["on", "enable"], takesArgs: false, summary: "Enable SDD enforcement (deterministic).", handler: sddOn, inline: () => "✅ SDD enforcement enabled. Code changes now require an approved task." },
+  { aliases: ["off", "disable"], takesArgs: false, summary: "Disable SDD enforcement (deterministic).", handler: sddOff, inline: () => "⏸️ SDD enforcement disabled. Code changes are free; use /sdd on to re-enable." },
+  { aliases: ["status"], takesArgs: false, summary: "Show current toggle state.", handler: sddStatus, inline: (result) => result.includes("🟢 ON") ? "🟢 SDD enforcement is ON." : "🔴 SDD enforcement is OFF." },
+  { aliases: ["renew"], takesArgs: false, summary: "Renew the active workflow window (keeps the same Change).", handler: sddRenew, inline: (result) => result.includes("NOT RENEWED") ? "⚠️ " + headline(result) : "✅ " + headline(result) },
+  { aliases: ["cache_reset", "cachereset"], takesArgs: false, summary: "Clear caches without killing the session (deterministic).", handler: sddCacheReset, inline: () => "🧹 Cache cleared: memory, disk and snapshot." },
   { aliases: ["tasks"], takesArgs: true, summary: "List the Kanban task board. Also `tasks board`, `tasks integrate`, `tasks change <TASK-ID>`.", handler: sddTasks },
+  { aliases: ["export"], takesArgs: true, summary: "Export the reverse-engineering target backlog to a new project. Also `export <dir> --dry-run`.", handler: sddExport },
   { aliases: ["acceptance"], takesArgs: true, summary: "Human acceptance criteria. Also `acceptance accept|reject|waive|create|update|final-accept <ID>`.", handler: sddAcceptance },
   { aliases: ["guide"], takesArgs: true, summary: "Register human guidance: `guide <NODE-ID> <instruction>`.", handler: sddGuide },
-  { aliases: ["viz"], takesArgs: true, summary: "Start the Knowledge Graph dashboard (deterministic). Also `viz stop`, `viz status`.", handler: sddViz },
+  { aliases: ["viz"], takesArgs: true, summary: "Start the Knowledge Graph dashboard (deterministic). Also `viz stop`, `viz status`.", handler: sddViz, inline: (result) => {
+    const url = result.match(/https?:\/\/[^\s)]+/)?.[0]
+    if (url) return "🖥️ SDD dashboard running at " + url
+    if (/stopped/i.test(result)) return "🛑 SDD dashboard stopped."
+    if (/not running/i.test(result)) return "ℹ️ SDD dashboard is not running."
+    return headline(result)
+  } },
 ]
 
 /** Canonical subcommand list, one line per entry, for help and error output. */
@@ -159,14 +178,16 @@ export function runSddCommand(
   rawInput: string,
   sessionID = "unknown",
 ): SddCommandResult {
-  const raw = rawInput.replace(/^[/\s]+/, "").trim().toLowerCase()
-  if (!raw.startsWith("sdd")) return { matched: false, text: "" }
+  const raw = rawInput.replace(/^[/\s]+/, "").trim()
+  if (!/^sdd(?:[\s:_-]+|$)/i.test(raw)) return { matched: false, text: "", inline: "" }
 
   // `sdd viz`, `sdd:viz` and `sdd-viz` are the same thing: the separator after
-  // "sdd" is consumed here so no form falls into the panel by mistake.
+  // "sdd" is consumed here so no form falls into the panel by mistake. Only the
+  // subcommand is lowercased; arguments keep their case for paths, names and
+  // technology choices (e.g. `--stack backend=NestJS`).
   const parts = raw.replace(/^sdd(?:[\s:_-]+|$)/i, "").split(/\s+/).filter(Boolean)
-  const subRaw = parts.join(" ").trim().toLowerCase()
-  const sub = subRaw.replace(/^[:\-_]/, "").trim()
+  const subRaw = parts.join(" ").trim()
+  const sub = subRaw.toLowerCase().replace(/^[:\-_]/, "").trim()
 
   const input: SddCommandInput = { command: "sdd", sessionID, arguments: subRaw }
 
@@ -177,9 +198,14 @@ export function runSddCommand(
   // by a canned error. `extractSddCommandText` applies the same rule to text
   // that arrives outside the TUI, which keeps both entry points identical.
   const entry = resolveSddSubcommand(sub)
-  if (!entry) return { matched: false, text: "" }
+  if (!entry) return { matched: false, text: "", inline: "" }
 
-  return { matched: true, text: entry.handler(projectDir, input) }
+  const text = entry.handler(projectDir, input)
+  return {
+    matched: true,
+    text,
+    inline: entry.inline ? entry.inline(text) : text,
+  }
 }
 
 /**
@@ -554,8 +580,8 @@ function sddTasks(projectDir: string, input: SddCommandInput): string {
     const result = openChangeForTask(graph, task.id, { approve })
     repo.saveGraph(graph)
     const footer = result.approved
-      ? "\nNext step: implement the code covered by the Change (the agent also receives this request through the dashboard)."
-      : "\nRun `/sdd tasks change " + task.id + " --approve` to approve it and unlock code writing."
+      ? "\nNext step: approve the task itself (`/sdd tasks approve " + task.id + "`) — task approval is the write gate; the Change is the evolution/audit record."
+      : "\nRun `/sdd tasks change " + task.id + " --approve` to approve the Change, then approve the task to unlock code writing."
     return formatOpenChangeResult(result) + footer
   }
 
@@ -616,6 +642,77 @@ function sddTasks(projectDir: string, input: SddCommandInput): string {
   }
   lines.push("Commands: `/sdd tasks`, `/sdd tasks integrate`, `/sdd tasks board`, `/sdd tasks approve <TASK-ID>`, `/sdd tasks reject <TASK-ID>`, `/sdd tasks change <TASK-ID>`")
   return lines.join("\n")
+}
+
+/**
+ * `/sdd export` — exporta o backlog-alvo de reverse engineering sem chamar a
+ * tool. O dry-run valida tudo e mostra o que seria copiado sem criar o projeto.
+ */
+function sddExport(projectDir: string, input: SddCommandInput): string {
+  const usage =
+    "Usage: `/sdd export <target-dir> [--stack backend=NestJS,database=PostgreSQL] [--name TargetApp] [--dry-run]`."
+  const raw = input.arguments.replace(/^export[:\s]*/i, "").trim()
+  if (!raw) return usage
+
+  const parts = raw.split(/\s+/).filter(Boolean)
+  let targetDir = ""
+  let projectName: string | undefined
+  let techStack: string | undefined
+  let dryRun = false
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+    if (part === "--dry-run" || part === "--dryrun") {
+      dryRun = true
+      continue
+    }
+    if (part === "--name" || part === "--project") {
+      projectName = parts[++i]
+      if (!projectName) return `${usage}\n\nMissing value for ${part}.`
+      continue
+    }
+    if (part.startsWith("--name=")) {
+      projectName = part.slice("--name=".length)
+      continue
+    }
+    if (part === "--stack") {
+      techStack = parts[++i]
+      if (!techStack) return `${usage}\n\nMissing value for --stack.`
+      continue
+    }
+    if (part.startsWith("--stack=")) {
+      techStack = part.slice("--stack=".length)
+      continue
+    }
+    if (part.startsWith("--")) return `${usage}\n\nUnknown option: ${part}`
+    if (targetDir) return `${usage}\n\nOnly one target directory is accepted.`
+    targetDir = part
+  }
+
+  if (!targetDir) return usage
+  const repo = createRepository(projectDir)
+  if (!repo.isInitialized()) {
+    return "## SDD Export\n\nThe Knowledge Graph is not initialized. Run `sdd.initialize` first."
+  }
+  const graph = repo.loadGraph()
+
+  try {
+    const result = exportTargetBacklog(projectDir, graph, {
+      targetDir,
+      projectName,
+      techStack,
+      dryRun,
+    })
+    return formatTargetExport(result)
+  } catch (error) {
+    return [
+      "## Target backlog export failed",
+      "",
+      error instanceof Error ? error.message : String(error),
+      "",
+      "Run `/sdd export <target-dir> --dry-run` to validate the scope without writing.",
+    ].join("\n")
+  }
 }
 
 /**

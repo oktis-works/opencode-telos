@@ -455,13 +455,15 @@ When the Knowledge Graph has purpose=reverse_engineering in its metadata (check 
 4. **Update database nodes** with chosen engine
 5. **Update techStack** in graph metadata
 6. **Change purpose to greenfield** — implementation can now proceed
-7. **Proceed with normal SDD workflow** — enforce → update spec → approve → generate code
+7. **Treat the reverse-engineered tasks as target backlog** — they are marked with execution_scope=target and have no source files; declare target files before approving them.
+8. **Export the target backlog after the stack is chosen** — call sdd.integrate_tasks with action=export_target, target_dir, project_name and tech_stack. Use dry_run=true (or /sdd export <dir> --dry-run) first to review the nodes and tasks without writing. The real export creates a fresh target project with the spec, tasks, dossiers and TARGET_BACKLOG.md; the source project is not modified.
+9. **Proceed with normal SDD workflow in the target project** — enforce → update spec → approve → generate code
 
 ### When purpose is documentation:
 - The SDD documents the existing system AS-IS with its real tech stack
 - All discovered nodes are APPROVED because they represent reality; APPROVED does not mean defect-free
 - Use this for understanding, onboarding, and knowledge transfer
-- Run \`sdd.findings(action="scan")\` after brownfield documentation. Keep each finding in the graph, create its remediation task, and resolve it only with a Change and verification evidence.
+- Run \`sdd.findings(action="scan")\` after brownfield documentation. Keep each finding in the graph, create its remediation task, and resolve it with an approved task or a Change and verification evidence.
 - Documentation must show open findings, accepted risks, and resolved findings without deleting history.
 - The normal SDD workflow applies for making changes to the documented system
 

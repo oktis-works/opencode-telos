@@ -48,18 +48,25 @@ describe("runSddCommand", () => {
     expect(result.text).toBe("")
   })
 
-  test("on writes the toggle and reports enabled", () => {
+  test("on writes the toggle and reports enabled inline", () => {
     const result = runSddCommand(dir, "sdd on")
     expect(result.matched).toBe(true)
     expect(result.text).toContain("enabled")
+    expect(result.inline).toContain("enabled")
+    expect(result.inline).toContain("approved task")
+    expect(result.inline).not.toContain("Toggle written")
+    expect(result.inline).not.toContain("\n")
     const state = JSON.parse(readFileSync(join(dir, ".sdd", "enabled"), "utf-8"))
     expect(state.enabled).toBe(true)
   })
 
-  test("off writes the toggle and reports disabled", () => {
+  test("off writes the toggle and reports disabled inline", () => {
     const result = runSddCommand(dir, "sdd off")
     expect(result.matched).toBe(true)
     expect(result.text).toContain("disabled")
+    expect(result.inline).toContain("disabled")
+    expect(result.inline).toContain("/sdd on")
+    expect(result.inline).not.toContain("Toggle written")
     const state = JSON.parse(readFileSync(join(dir, ".sdd", "enabled"), "utf-8"))
     expect(state.enabled).toBe(false)
   })
@@ -68,6 +75,16 @@ describe("runSddCommand", () => {
     const result = runSddCommand(dir, "sdd status")
     expect(result.matched).toBe(true)
     expect(result.text).toContain("Status")
+    expect(result.inline).toContain("SDD enforcement")
+    expect(result.inline.split("\n")).toHaveLength(1)
+  })
+
+  test("every known subcommand has a non-empty inline result", () => {
+    for (const raw of ["sdd", "sdd on", "sdd off", "sdd status", "sdd cache_reset", "sdd tasks", "sdd export", "sdd acceptance", "sdd guide", "sdd viz status"]) {
+      const result = runSddCommand(dir, raw, "ses_inline")
+      expect(result.matched, raw).toBe(true)
+      expect(result.inline.length, raw).toBeGreaterThan(0)
+    }
   })
 
   test("panel renders static help", () => {
@@ -87,9 +104,10 @@ describe("renderSddCommandMessage", () => {
     messageID = `msg-${Math.random().toString(36).slice(2)}-${dir.split("-").pop()}`
   })
 
-  test("returns the deterministic result", () => {
+  test("returns the full deterministic result, not only the inline summary", () => {
     const text = renderSddCommandMessage(dir, "sdd on", messageID)
     expect(text).toContain("enabled")
+    expect(text).toContain("Toggle written")
   })
 
   test("caches per message id and does not re-execute side effects", () => {
@@ -148,6 +166,7 @@ describe("/sdd grammar is derived from one table", () => {
     "sdd", "sdd panel", "sdd help", "sdd on", "sdd enable", "sdd off", "sdd disable",
     "sdd status", "sdd renew", "sdd cache_reset", "sdd cache reset", "sdd cachereset",
     "sdd tasks", "sdd tasks board", "sdd tasks integrate", "sdd tasks change TASK-1",
+    "sdd export ../target-app", "sdd export ../target-app --dry-run",
     "sdd acceptance", "sdd acceptance REQ-1", "sdd guide NODE-1 do the thing",
     "sdd viz", "sdd viz stop", "sdd viz status",
   ] as const
@@ -185,7 +204,7 @@ describe("/sdd grammar is derived from one table", () => {
     const panel = runSddCommand(dir, "sdd", "ses_t").text
     const status = runSddCommand(dir, "sdd status", "ses_t").text
     for (const alias of [
-      "on", "off", "status", "renew", "tasks", "acceptance", "guide", "viz", "cache_reset", "panel",
+      "on", "off", "status", "renew", "tasks", "export", "acceptance", "guide", "viz", "cache_reset", "panel",
     ]) {
       expect(panel, `panel: ${alias}`).toContain(`\`sdd ${alias}\``)
       expect(status, `status footer: ${alias}`).toContain(`\`/sdd ${alias}\``)

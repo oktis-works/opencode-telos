@@ -692,6 +692,8 @@ function buildAnalysis(
       acceptance: requirement.acceptanceCriteria,
       priority: requirement.priority,
       requirement: requirement.name,
+      purpose: "reverse_engineering" as const,
+      execution_scope: "target" as const,
     })) : [],
     relationships: [], // Relationships are built by the graph builder
     domains: inferDomains(entities, endpoints),
@@ -712,6 +714,7 @@ function buildAnalysis(
       }
       return stack
     })(),
+    purpose,
   }
 }
 

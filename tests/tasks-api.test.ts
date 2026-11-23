@@ -296,15 +296,49 @@ describe("dashboard task API", () => {
     expect(html).toContain('data-view="kanban"')
     expect(html).toContain('id="task-modal"')
     expect(html).toContain("renderKanban")
+    expect(html).toContain("target-backlog")
+    expect(html).toContain('id="kanban-filter-scope"')
+    expect(html).toContain("Target only")
+    expect(html).toContain('scope === "target"')
+    expect(html).toContain('meta.purpose === "reverse_engineering"')
     expect(html).toContain('return n.id === id ? "#ffffff" : getColor(n.type);')
     expect(html).toContain("fg.nodeOpacity(0.9);")
     expect(html).not.toContain("connectedIds.has(n.id) ? 1.0 : 0.6")
+    expect(html).toContain('/ui/3d-force-graph.min.js')
+    expect(html).not.toContain("unpkg.com")
+    expect(html).toContain("var allTasks = []")
+    expect(html).toContain("expected_version")
+    expect(html).toContain('role="dialog"')
+    expect(html).toContain('aria-modal="true"')
+    expect(html).toContain('aria-labelledby="task-modal-title"')
+    expect(html).toContain('role="tabpanel"')
+    expect(html).toContain('aria-live="polite"')
+    expect(html).toContain("task-links")
+    expect(html).toContain("@media (max-width: 700px)")
 
     // The static shell (everything before the first <script>) must be balanced.
     const shell = html.split("<script")[0]
     const opens = (shell.match(/<div\b/g) || []).length
     const closes = (shell.match(/<\/div>/g) || []).length
     expect(opens).toBe(closes)
+  })
+
+  test("GET / ships syntactically valid inline scripts", async () => {
+    const html = await (await fetch(`${base}/`)).text()
+    const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+      .map((match) => match[1])
+      .filter(Boolean)
+    expect(scripts.length).toBeGreaterThan(0)
+    for (const script of scripts) {
+      expect(() => new Function(script)).not.toThrow()
+    }
+  })
+
+  test("GET /ui/3d-force-graph.min.js serves the local graph asset", async () => {
+    const res = await fetch(`${base}/ui/3d-force-graph.min.js`)
+    expect(res.status).toBe(200)
+    expect(res.headers.get("content-type")).toContain("javascript")
+    expect((await res.text()).length).toBeGreaterThan(1000)
   })
 
   test("GET /api/tasks lists columns and tasks", async () => {
@@ -375,6 +409,31 @@ describe("dashboard task API", () => {
     const task = (list as { tasks: Array<{ column: string; status: string }> }).tasks[0]
     expect(task.column).toBe("done")
     expect(task.status).toBe("completed")
+  })
+
+  test("POST /api/tasks/:id updates only the intended fields and preserves scope", async () => {
+    await fetch(`${base}/api/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Scoped", goal: "Ship it", files: ["src/a.ts"], priority: "critical" }),
+    })
+    const before = (await fetch(`${base}/api/tasks`).then((r) => r.json())) as {
+      tasks: Array<{ id: string; version: number; metadata: Record<string, unknown>; priority: string; approval: { status: string } }>
+    }
+    const task = before.tasks[0]
+    const res = await fetch(`${base}/api/tasks/${task.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: "More context", expected_version: task.version }),
+    })
+    expect(res.status).toBe(200)
+    const after = (await fetch(`${base}/api/tasks`).then((r) => r.json())) as {
+      tasks: Array<{ metadata: Record<string, unknown>; priority: string; approval: { status: string } }>
+    }
+    expect(after.tasks[0].metadata.goal).toBe("Ship it")
+    expect(after.tasks[0].metadata.files).toEqual(["src/a.ts"])
+    expect(after.tasks[0].priority).toBe("critical")
+    expect(after.tasks[0].approval.status).toBe("PENDING")
   })
 
   test("POST /api/tasks/:id detects version conflicts", async () => {

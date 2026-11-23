@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
 import { createRepository, type GraphRepository } from "../sdd/persistence/repository.js"
 import { getGraphStats, getNode } from "../sdd/graph/engine.js"
 import { computeImpact } from "../sdd/graph/traverse.js"
@@ -371,6 +373,16 @@ export class SddDashboardServer {
 
       if (path === "/api/progress") {
         return this.getProgress()
+      }
+
+      if (path === "/ui/3d-force-graph.min.js") {
+        const assetPath = fileURLToPath(new URL("./ui/vendor/3d-force-graph.min.js", import.meta.url))
+        if (!existsSync(assetPath)) {
+          return new Response("Graph asset not found", { status: 404, headers: corsHeaders })
+        }
+        return new Response(readFileSync(assetPath), {
+          headers: { ...corsHeaders, "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "public, max-age=31536000, immutable" },
+        })
       }
 
       if (path === "/") {
@@ -750,8 +762,9 @@ export class SddDashboardServer {
   <title>SDD Knowledge Graph Dashboard</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #c9d1d9; overflow: hidden; }
-    .container { display: grid; grid-template-columns: 280px 1fr 320px; height: 100%; }
+    .container { display: grid; grid-template-columns: 280px 1fr 320px; height: 100%; min-height: 0; }
     .sidebar { background: #161b22; border-right: 1px solid #30363d; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; }
     .main { position: relative; overflow: hidden; }
     .details { background: #161b22; border-left: 1px solid #30363d; padding: 16px; overflow-y: auto; }
@@ -764,6 +777,7 @@ export class SddDashboardServer {
     .node-item { padding: 8px 12px; margin: 2px 0; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
     .node-item:hover { background: #21262d; }
     .node-item.selected { background: #1f6feb33; border-left: 3px solid #58a6ff; }
+    .node-item:focus-visible { outline: 2px solid #58a6ff; outline-offset: -2px; }
     .node-id { font-size: 11px; color: #8b949e; }
     .node-name { font-size: 13px; font-weight: 500; }
     .node-status { font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 8px; }
@@ -783,10 +797,15 @@ export class SddDashboardServer {
     .detail-field { font-size: 12px; padding: 4px 0; }
     .detail-field .label { color: #8b949e; }
     #graph-container { width: 100%; height: 100%; }
-    .graph-overlay { position: absolute; bottom: 12px; left: 12px; background: #161b22ee; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #8b949e; pointer-events: none; }
-    .graph-controls { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; }
-    .graph-btn { width: 32px; height: 32px; border-radius: 6px; border: 1px solid #30363d; background: #161b22; color: #c9d1d9; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .graph-overlay { position: absolute; bottom: 12px; left: 12px; background: #161b22ee; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #8b949e; pointer-events: none; max-width: calc(100% - 80px); }
+    .graph-overlay.error { border-color: #da3633; color: #ffb3ad; }
+    .graph-controls { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+    .graph-btn { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #30363d; background: #161b22; color: #c9d1d9; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
     .graph-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+    .graph-btn.details-toggle { display: none; font-size: 12px; width: auto; padding: 0 8px; }
+    .graph-error { display: none; position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); z-index: 2; width: min(420px, 90vw); background: #161b22; border: 1px solid #da3633; border-radius: 10px; padding: 18px; color: #c9d1d9; text-align: center; }
+    .graph-error strong { color: #f85149; display: block; margin-bottom: 6px; }
+    .graph-error p { color: #8b949e; font-size: 12px; margin-bottom: 10px; word-break: break-word; }
     .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #8b949e; }
     .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -807,23 +826,42 @@ export class SddDashboardServer {
     .sse-dot.connected { background: #3fb950; }
     .sse-dot.disconnected { background: #f85149; }
     .large-graph-notice { background: #1c2333; border: 1px solid #30363d; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 11px; color: #d29922; display: none; }
+    .modal-open { overflow: hidden; }
+    @media (max-width: 1200px) {
+      .container { grid-template-columns: 240px 1fr 280px; }
+      .sidebar { padding: 12px; }
+      .details { padding: 12px; }
+    }
+    @media (max-width: 900px) {
+      .container { grid-template-columns: 220px 1fr; position: relative; }
+      .details { position: absolute; z-index: 4; top: 0; right: 0; bottom: 0; width: min(360px, 92vw); box-shadow: -8px 0 24px #0008; display: none; }
+      .details.open { display: block; }
+      .graph-btn.details-toggle { display: flex; }
+    }
+    @media (max-width: 700px) {
+      .container { grid-template-columns: 1fr; grid-template-rows: minmax(160px, 38vh) 1fr; }
+      .sidebar { border-right: 0; border-bottom: 1px solid #30363d; min-height: 0; }
+      .sidebar h1 { display: none; }
+      .main { min-height: 220px; }
+      .details { width: min(360px, 100%); }
+      .graph-overlay { right: 12px; bottom: 8px; }
+    }
 ${KANBAN_STYLE}
   </style>
 </head>
 <body>
   <div class="app">
-    <header class="topbar">
+    <header class="topbar" role="banner">
       <span class="brand">SDD Knowledge Graph</span>
-      <nav class="tabs">
-        <button class="tab active" data-view="graph">Graph</button>
-        <button class="tab" data-view="kanban">Kanban</button>
+      <nav class="tabs" role="tablist" aria-label="Dashboard views">
+        <button class="tab active" id="tab-graph" data-view="graph" role="tab" aria-selected="true" aria-controls="graph-view">Graph</button>
+        <button class="tab" id="tab-kanban" data-view="kanban" role="tab" aria-selected="false" aria-controls="kanban-view">Kanban</button>
       </nav>
-      <span class="task-pending" id="task-pending"></span>
+      <span class="task-pending" id="task-pending" role="status" aria-live="polite"></span>
     </header>
     <div class="views">
-  <div class="container" id="graph-view">
+  <div class="container" id="graph-view" role="tabpanel" aria-labelledby="tab-graph">
     <div class="sidebar">
-      <h1>SDD Knowledge Graph</h1>
       <div class="sse-status" id="sse-status">
         <span class="sse-dot disconnected" id="sse-dot"></span>
         <span id="sse-text">Disconnected</span>
@@ -848,41 +886,48 @@ ${KANBAN_STYLE}
     <div class="main">
       <div id="graph-container"></div>
       <div class="graph-controls">
-        <button class="graph-btn" onclick="resetView()" title="Reset view">&#x21bb;</button>
-        <button class="graph-btn" onclick="zoomIn()" title="Zoom in">+</button>
-        <button class="graph-btn" onclick="zoomOut()" title="Zoom out">&minus;</button>
+        <button class="graph-btn details-toggle" id="details-toggle" onclick="toggleDetails()" title="Toggle details" aria-label="Toggle node details">Details</button>
+        <button class="graph-btn" onclick="resetView()" title="Reset view" aria-label="Reset graph view">&#x21bb;</button>
+        <button class="graph-btn" onclick="zoomIn()" title="Zoom in" aria-label="Zoom in">+</button>
+        <button class="graph-btn" onclick="zoomOut()" title="Zoom out" aria-label="Zoom out">&minus;</button>
       </div>
-      <div class="graph-overlay" id="graph-overlay">Loading...</div>
+      <div class="graph-error" id="graph-error" role="alert">
+        <strong>3D graph unavailable</strong>
+        <p id="graph-error-text"></p>
+        <button class="btn" id="graph-retry">Retry</button>
+      </div>
+      <div class="graph-overlay" id="graph-overlay" role="status">Loading...</div>
     </div>
     <div class="details" id="details">
       <h2>Node Details</h2>
       <p style="color: #8b949e; font-size: 13px;">Click a node to view details</p>
     </div>
   </div>
-  <div class="kanban-wrap" id="kanban-view" style="display:none">
-    <div class="kanban-toolbar" id="kanban-toolbar">
-      <input class="search" id="kanban-search" type="text" placeholder="Search tasks...">
-      <span class="tb-label">Link</span>
-      <select id="kanban-filter-link"><option value="all">All</option><option value="linked">Linked</option><option value="unlinked">Unlinked</option><option value="feature">Feature</option><option value="requirement">Requirement</option><option value="entity">Entity</option><option value="test">Test</option></select>
-      <span class="tb-label">Integration</span>
-      <select id="kanban-filter-integration"><option value="all">All</option><option value="pending">Pending</option><option value="manual">Manual</option><option value="integrated">Integrated</option></select>
-      <span class="tb-label">Priority</span>
-      <select id="kanban-filter-priority"><option value="all">All</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
-      <span class="tb-label">Column</span>
-      <select id="kanban-filter-column"><option value="all">All</option><option value="backlog">Backlog</option><option value="ready">Ready</option><option value="in_progress">In Progress</option><option value="blocked">Blocked</option><option value="done">Done</option></select>
-      <span class="spacer"></span>
-      <span class="tb-label">Sort by</span>
-      <select id="kanban-sort"><option value="column">Column</option><option value="priority">Priority</option><option value="name">Name</option><option value="updated">Updated</option><option value="created">Created</option><option value="links">Links</option><option value="integration">Integration</option></select>
-      <select id="kanban-order"><option value="asc">↑</option><option value="desc">↓</option></select>
-      <button class="btn" id="kanban-reset-filters">Clear</button>
+  <div class="kanban-wrap" id="kanban-view" role="tabpanel" aria-labelledby="tab-kanban" style="display:none">
+    <div class="kanban-toolbar" id="kanban-toolbar" aria-label="Task filters">
+      <div class="tb-group" style="flex:1 1 220px">
+        <label class="tb-label" for="kanban-search">Search</label>
+        <input class="search" id="kanban-search" type="text" placeholder="Search tasks..." aria-label="Search tasks">
+      </div>
+      <div class="tb-group"><label class="tb-label" for="kanban-filter-link">Link</label><select id="kanban-filter-link"><option value="all">All</option><option value="linked">Linked</option><option value="unlinked">Unlinked</option><option value="project">Project</option><option value="feature">Feature</option><option value="requirement">Requirement</option><option value="entity">Entity</option><option value="test">Test</option></select></div>
+      <div class="tb-group"><label class="tb-label" for="kanban-filter-integration">Integration</label><select id="kanban-filter-integration"><option value="all">All</option><option value="pending">Pending</option><option value="manual">Not requested</option><option value="integrated">Integrated</option></select></div>
+      <div class="tb-group"><label class="tb-label" for="kanban-filter-priority">Priority</label><select id="kanban-filter-priority"><option value="all">All</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
+      <div class="tb-group"><label class="tb-label" for="kanban-filter-column">Column</label><select id="kanban-filter-column"><option value="all">All</option><option value="backlog">Backlog</option><option value="ready">Ready</option><option value="in_progress">In Progress</option><option value="blocked">Blocked</option><option value="done">Done</option></select></div>
+      <div class="tb-group"><label class="tb-label" for="kanban-filter-scope">Scope</label><select id="kanban-filter-scope"><option value="all">All</option><option value="target">Target only</option><option value="source">Source only</option></select></div>
+      <div class="tb-group"><label class="tb-label" for="kanban-sort">Sort by</label><div class="tb-group-inline"><select id="kanban-sort"><option value="column">Column</option><option value="priority">Priority</option><option value="name">Name</option><option value="updated">Updated</option><option value="created">Created</option><option value="links">Links</option><option value="integration">Integration</option></select><select id="kanban-order" aria-label="Sort direction"><option value="asc">↑</option><option value="desc">↓</option></select></div></div>
+      <button class="btn" id="kanban-reset-filters" style="margin-left:auto">Clear</button>
+      <span class="kanban-result" id="kanban-result" role="status" aria-live="polite"></span>
+      <span class="kanban-summary" id="kanban-filter-summary"></span>
     </div>
-    <button class="btn primary" id="kanban-add">+ New task</button>
+    <div id="kanban-alert" role="alert"></div>
+    <button class="btn primary kanban-new" id="kanban-add">+ New task</button>
     <div class="kanban" id="kanban-board"></div>
+    <div class="visually-hidden" id="kanban-live" role="status" aria-live="polite"></div>
   </div>
     </div>
   </div>
 ${KANBAN_MODAL_HTML}
-  <script src="https://unpkg.com/3d-force-graph@1.73.4/dist/3d-force-graph.min.js"></script>
+  <script src="/ui/3d-force-graph.min.js"></script>
   <script>
     var TYPE_COLORS = {
       project: "#58a6ff", feature: "#3fb950", requirement: "#d29922",
@@ -917,17 +962,51 @@ ${KANBAN_MODAL_HTML}
     var lastUpdatedAt = "";
     var isLargeGraph = false;
     var LARGE_GRAPH_THRESHOLD = 2000;
+    var graphRequestId = 0;
 
     function getColor(type) { return TYPE_COLORS[type] || "#8b949e"; }
+
+    function showGraphError(message) {
+      var panel = document.getElementById("graph-error");
+      var text = document.getElementById("graph-error-text");
+      var overlay = document.getElementById("graph-overlay");
+      if (text) text.textContent = message || "The graph could not be loaded.";
+      if (panel) panel.style.display = "block";
+      if (overlay) { overlay.textContent = "Graph unavailable"; overlay.classList.add("error"); }
+    }
+
+    function hideGraphError() {
+      // A successful API response does not mean the 3D graph initialized. Keep
+      // the error panel visible when the canvas is unavailable so the user knows
+      // why the graph is empty; the node list and Kanban still work.
+      if (!fg) return;
+      var panel = document.getElementById("graph-error");
+      var overlay = document.getElementById("graph-overlay");
+      if (panel) panel.style.display = "none";
+      if (overlay) overlay.classList.remove("error");
+    }
+
+    function toggleDetails() {
+      var details = document.getElementById("details");
+      if (details) details.classList.toggle("open");
+    }
 
     // Helper to safely extract id from node ref (may be object or string after graphData())
     function linkSourceId(l) { return (typeof l.source === "object" && l.source !== null) ? l.source.id : l.source; }
     function linkTargetId(l) { return (typeof l.target === "object" && l.target !== null) ? l.target.id : l.target; }
 
     function loadGraph() {
-      fetch("/api/graph")
-        .then(function(res) { return res.json(); })
+      var requestId = ++graphRequestId;
+      fetch("/api/graph", { headers: { "Accept": "application/json" } })
+        .then(function(res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
         .then(function(data) {
+          if (requestId !== graphRequestId) return;
+          if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.relationships)) {
+            throw new Error("Invalid graph response");
+          }
           var nodeCount = data.nodeCount || data.nodes.length;
           var relCount = data.relCount || data.relationships.length;
           var updatedAt = data.updated_at || "";
@@ -939,24 +1018,38 @@ ${KANBAN_MODAL_HTML}
           lastUpdatedAt = updatedAt;
 
           isLargeGraph = nodeCount > LARGE_GRAPH_THRESHOLD;
-
           allNodes = data.nodes;
+          if (activeFilter && !allNodes.some(function(n) { return n.type === activeFilter; })) activeFilter = null;
+          hideGraphError();
+
           function renderLoadedLinks(links) {
+            if (requestId !== graphRequestId) return;
             allLinks = links;
             if (changed) applyFilters();
             renderFilters();
             renderLegend();
             renderNodeList();
             if (typeof renderKanban === "function") renderKanban();
-            var overlayText = nodeCount + " nodes, " + relCount + " links";
-            if (isLargeGraph) overlayText += " (large graph mode: rendering " + Math.min(nodeCount, 500) + " nodes; use search/filter to focus)";
-            document.getElementById("graph-overlay").textContent = overlayText;
+            var overlay = document.getElementById("graph-overlay");
+            if (overlay) {
+              if (!fg) {
+                overlay.textContent = "3D graph unavailable; use the node list.";
+                overlay.classList.add("error");
+              } else {
+                overlay.textContent = nodeCount === 0
+                  ? "No nodes in this graph"
+                  : nodeCount + " nodes, " + relCount + " links" + (isLargeGraph ? " (large graph mode: rendering " + Math.min(nodeCount, 500) + " nodes; use search/filter to focus)" : "");
+              }
+            }
           }
 
           if (data.hasMoreRelationships) {
             function loadRelationshipPage(offset, links) {
-              return fetch("/api/graph/relationships?offset=" + offset + "&limit=2000")
-                .then(function(res) { return res.json(); })
+              return fetch("/api/graph/relationships?offset=" + offset + "&limit=2000", { headers: { "Accept": "application/json" } })
+                .then(function(res) {
+                  if (!res.ok) throw new Error("HTTP " + res.status);
+                  return res.json();
+                })
                 .then(function(page) {
                   var combined = links.concat(page.relationships || []);
                   if (page.hasMore) return loadRelationshipPage(offset + (page.relationships || []).length, combined);
@@ -971,7 +1064,11 @@ ${KANBAN_MODAL_HTML}
             renderLoadedLinks(data.relationships);
           }
         })
-        .catch(function(e) { console.error("Failed to load graph:", e); });
+        .catch(function(e) {
+          if (requestId !== graphRequestId) return;
+          console.error("Failed to load graph:", e);
+          showGraphError(e && e.message ? e.message : String(e));
+        });
     }
 
     function applyFilters() {
@@ -1055,17 +1152,19 @@ ${KANBAN_MODAL_HTML}
         typeCounts[n.type]++;
       });
       var el = document.getElementById("filters");
-      var html = '<button class="filter-btn active" data-filter="all">All (' + allNodes.length + ')</button>';
+      var html = '<button class="filter-btn' + (activeFilter ? "" : " active") + '" data-filter="all" aria-pressed="' + (activeFilter ? "false" : "true") + '">All (' + allNodes.length + ')</button>';
       types.forEach(function(t) {
-        html += '<button class="filter-btn" data-filter="' + t + '">' + t + " (" + typeCounts[t] + ")</button>";
+        var active = activeFilter === t;
+        html += '<button class="filter-btn' + (active ? " active" : "") + '" data-filter="' + escapeHtml(t) + '" aria-pressed="' + (active ? "true" : "false") + '">' + escapeHtml(t) + " (" + typeCounts[t] + ")</button>";
       });
       el.innerHTML = html;
       el.querySelectorAll(".filter-btn").forEach(function(btn) {
         btn.addEventListener("click", function() {
           var f = this.getAttribute("data-filter");
           activeFilter = f === "all" ? null : f;
-          el.querySelectorAll(".filter-btn").forEach(function(b) { b.classList.remove("active"); });
+          el.querySelectorAll(".filter-btn").forEach(function(b) { b.classList.remove("active"); b.setAttribute("aria-pressed", "false"); });
           this.classList.add("active");
+          this.setAttribute("aria-pressed", "true");
           applyFilters();
           renderNodeList();
         });
@@ -1073,13 +1172,15 @@ ${KANBAN_MODAL_HTML}
     }
 
     function renderLegend() {
-      // Build unique types in a single pass
-      var seen = {};
+      var counts = {};
       var types = [];
-      allNodes.forEach(function(n) { if (!seen[n.type]) { seen[n.type] = true; types.push(n.type); } });
+      allNodes.forEach(function(n) {
+        if (!counts[n.type]) { counts[n.type] = 0; types.push(n.type); }
+        counts[n.type]++;
+      });
       var el = document.getElementById("legend");
-      el.innerHTML = types.slice(0, 10).map(function(t) {
-        return '<span class="legend-item"><span class="legend-dot" style="background:' + getColor(t) + '"></span>' + t + "</span>";
+      el.innerHTML = types.map(function(t) {
+        return '<span class="legend-item" title="' + escapeHtml(t) + ' (' + counts[t] + ')"><span class="legend-dot" style="background:' + getColor(t) + '"></span>' + escapeHtml(t) + ' (' + counts[t] + ')</span>';
       }).join("");
     }
 
@@ -1093,7 +1194,7 @@ ${KANBAN_MODAL_HTML}
       var displayNodes = nodes.slice(0, listLimit);
       displayNodes.forEach(function(n) {
         var sel = selectedNodeId === n.id ? " selected" : "";
-        html += '<li class="node-item' + sel + '" data-id="' + escapeHtml(n.id) + '">' +
+        html += '<li class="node-item' + sel + '" tabindex="0" role="button" aria-label="' + escapeHtml(n.name + " (" + n.type + ")") + '" data-id="' + escapeHtml(n.id) + '">' +
           '<div class="node-id">' + escapeHtml(n.id) + "</div>" +
           '<div class="node-name">' + escapeHtml(n.name) + '<span class="node-status status-' + escapeHtml(n.status) + '">' + escapeHtml(n.status) + "</span></div>" +
           "</li>";
@@ -1106,6 +1207,9 @@ ${KANBAN_MODAL_HTML}
         item.addEventListener("click", function() {
           selectNode(this.getAttribute("data-id"));
         });
+        item.addEventListener("keydown", function(e) {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectNode(this.getAttribute("data-id")); }
+        });
       });
     }
 
@@ -1113,11 +1217,14 @@ ${KANBAN_MODAL_HTML}
       selectedNodeId = id;
       renderNodeList();
       highlightNode(id);
-      fetch("/api/nodes/" + encodeURIComponent(id))
-        .then(function(res) { return res.json(); })
+      var details = document.getElementById("details");
+      if (details) details.innerHTML = '<h2>Node Details</h2><p style="color:#8b949e;font-size:13px">Loading...</p>';
+      fetch("/api/nodes/" + encodeURIComponent(id), { headers: { "Accept": "application/json" } })
+        .then(function(res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
       .then(function(node) {
-          return fetch("/api/nodes/" + encodeURIComponent(id) + "/relationships")
-            .then(function(res2) { return res2.json(); })
+          if (node && node.error) throw new Error(node.error);
+          return fetch("/api/nodes/" + encodeURIComponent(id) + "/relationships", { headers: { "Accept": "application/json" } })
+            .then(function(res2) { if (!res2.ok) throw new Error("HTTP " + res2.status); return res2.json(); })
             .then(function(rels) {
               var acceptancePromise = node.type !== "requirement"
                 ? Promise.resolve(null)
@@ -1129,7 +1236,10 @@ ${KANBAN_MODAL_HTML}
             })
             .then(function(result) { renderDetails(node, result.rels, result.acceptance, result.guidance); centerOnNode(id); });
         })
-        .catch(function(e) { console.error("Failed to load node:", e); });
+        .catch(function(e) {
+          console.error("Failed to load node:", e);
+          if (details) details.innerHTML = '<h2>Node Details</h2><p style="color:#f85149;font-size:13px">Could not load this node: ' + escapeHtml(e && e.message ? e.message : String(e)) + '</p>';
+        });
     }
 
     function renderDetails(node, rels, acceptance, guidanceData) {
@@ -1256,6 +1366,7 @@ ${KANBAN_MODAL_HTML}
 
     function initGraph() {
       var container = document.getElementById("graph-container");
+      if (typeof ForceGraph3D !== "function") throw new Error("The 3D graph library is not available.");
       fg = ForceGraph3D()(container)
         .graphData(graphData)
         .backgroundColor("#0d1117")
@@ -1290,15 +1401,23 @@ ${KANBAN_MODAL_HTML}
       });
     }
 
-    document.getElementById("search").addEventListener("input", function(e) {
+    var graphSearch = document.getElementById("search");
+    if (graphSearch) graphSearch.addEventListener("input", function(e) {
       searchQuery = e.target.value;
       applyFilters();
       renderNodeList();
     });
 
-    initGraph();
+    var graphRetry = document.getElementById("graph-retry");
+    if (graphRetry) graphRetry.addEventListener("click", function() {
+      if (!fg) {
+        try { initGraph(); } catch (error) { showGraphError(error && error.message ? error.message : String(error)); }
+      }
+      loadGraph();
+    });
+    window.toggleDetails = toggleDetails;
+    try { initGraph(); } catch (error) { showGraphError(error && error.message ? error.message : String(error)); }
     loadGraph();
-    // Poll every 10s using lightweight counter-based change detection
     setInterval(loadGraph, 10000);
 
     // ─── SSE Real-time Progress ──────────────────────────────────────
@@ -1439,7 +1558,7 @@ ${KANBAN_MODAL_HTML}
     return new Response(html, {
       headers: {
         "Content-Type": "text/html",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
         ...headers,
       },
     })

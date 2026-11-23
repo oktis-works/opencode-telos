@@ -1,21 +1,21 @@
 /**
- * Task → Change bridge.
+ * Task → Change bridge (evolution only).
  *
- * A Kanban task is only a work item: it declares intent, not the authorization
- * to touch code. In this plugin the write hook only accepts Write/Edit on files
- * covered by an APPROVED `change` node, so an integrated task still has no way
- * to produce code.
+ * Since 3.3.0 the delivery write gate is an APPROVED task covering the target
+ * file. A Change is an audit/traceability record for a modification after the
+ * baseline; it is not the write authorization. This module still opens the
+ * Change deterministically for evolution workflows, but callers must keep the
+ * task approval in sync.
  *
- * This module closes that gap deterministically, reusing the existing pieces:
- *   - `createChange` (src/sdd/changes/manager.ts) builds the ChangeNode with
- *     impact analysis, approval level and the `affected_files` scope;
+ * Reused pieces:
+ *   - `createChange` builds the ChangeNode with impact analysis, approval level
+ *     and the `affected_files` scope;
  *   - `preflightChangeScope` tells whether the scope is complete enough for the
- *     write hook (no `affected_files` ⇒ every Write/Edit is refused);
- *   - `approveChange` opens the gate for AUTO-level changes.
+ *     evolution record;
+ *   - `approveChange` approves an AUTO-level Change.
  *
- * Nothing here generates code. It opens the Change and hands the agent a prompt
- * that says exactly which files are covered — the implementation itself stays in
- * the normal SDD loop (enforce → write → test → complete_change).
+ * Nothing here generates code. The implementation prompt tells the agent to
+ * approve the task before writing; the task remains the human gate.
  */
 
 import type {
@@ -28,7 +28,7 @@ import type {
 } from "../domain/types.js"
 import { approveChange, createChange, preflightChangeScope } from "../changes/manager.js"
 import { addRelationship, getNode, updateNode } from "../graph/engine.js"
-import { getTask, statusToColumn } from "./board.js"
+import { getTask, isTaskApproved, statusToColumn } from "./board.js"
 import { canCreateChange } from "../lifecycle/project-phase.js"
 
 /** Spec node types a task can point at; they become the Change impact scope. */
@@ -160,8 +160,8 @@ function toResult(
  *
  * Idempotent: calling it twice returns the same Change instead of stacking
  * duplicates. With `approve` (or an AUTO-level change) the Change becomes
- * APPROVED, which is what the write hook requires, and the task moves to
- * `in_progress` because the work has effectively started.
+ * APPROVED, but the write hook still requires the task itself to be APPROVED.
+ * The task moves to `in_progress` once the Change is approved.
  */
 export function openChangeForTask(
   graph: KnowledgeGraph,
@@ -273,14 +273,17 @@ function syncTaskWithChange(graph: KnowledgeGraph, task: TaskNode, changeId: str
  */
 export function buildChangeImplementationPrompt(change: ChangeNode, task: TaskNode): string {
   const files = change.metadata.affected_files
+  const taskApproved = isTaskApproved(task)
   const lines = [
     "## SDD: implement the Change opened by the task",
     "",
     `Task \`${task.id}\` ("${task.name}") opened Change \`${change.id}\` — status **${change.status}**, approval **${change.metadata.approval_level}**.`,
     "",
     "Implement the matching code following the SDD flow:",
-    `1. Change \`${change.id}\` is already the write authorization — do not open another Change.`,
-    "2. Only touch files covered by the declared scope.",
+    taskApproved
+      ? `1. The task is APPROVED — its declared files are the write authorization; Change \`${change.id}\` is the evolution/audit record.`
+      : `1. The task is NOT approved yet. Approve it with \`sdd.integrate_tasks\` (action="approve_task", task_id="${task.id}") before any Write/Edit. Change \`${change.id}\` is only the audit record.`,
+    "2. Only touch files covered by the task/Change scope.",
     "3. Run the relevant tests (`sdd.verify_implementation` where applicable).",
     `4. Finish with \`sdd.complete_change\` (\`change_id: "${change.id}"\`).`,
     "",
@@ -310,7 +313,7 @@ export function formatOpenChangeResult(result: OpenChangeResult): string {
   ]
 
   if (result.approved) {
-    lines.push("✅ Change approved — the write hook releases the declared files. Next step: implement the code.")
+    lines.push("✅ Change approved — evolution/audit record is ready. Task approval is still the write gate; approve the task before editing files.")
   } else {
     lines.push("⏳ Change in draft — approval required before writing code.")
   }

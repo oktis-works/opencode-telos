@@ -45,6 +45,7 @@ import {
 } from "../sdd/tasks/board.js"
 import { formatOpenChangeResult, openChangeForTask } from "../sdd/tasks/change-bridge.js"
 import { writeTaskDossier, writeTaskDossiers } from "../sdd/tasks/dossier.js"
+import { exportTargetBacklog, formatTargetExport } from "../sdd/tasks/target-export.js"
 import {
   canCreateChange,
   describeLifecycle,
@@ -2814,11 +2815,13 @@ function createAllTools(): Record<string, ToolDefinition> {
           const brownfield = scanExistingProject(ctx.directory)
           const scan = detectBrownfieldFindings(ctx.directory, brownfield, purpose as "documentation" | "reverse_engineering")
           const summary = materializeBrownfieldFindings(graph, scan.findings, purpose as "documentation" | "reverse_engineering")
+          const dossiers = writeTaskDossiers(ctx.directory, graph)
           repo.saveGraph(graph)
           invalidateCacheForMutation(ctx.directory, ["finding", "task", "requirement", "file"], ["detected_in", "tracked_by", "resolves", "derived_from"])
           return [
             `Scan completed: ${scan.findings.length} findings from ${scan.filesInspected} source files.`,
             `Created: ${summary.created}; tasks: ${summary.tasks}; converted to target requirements: ${summary.resolvedForTarget}.`,
+            `Task dossiers generated: ${dossiers.length}.`,
             "",
             formatFindingsReport(graph, purpose as "documentation" | "reverse_engineering"),
           ].join("\n")
@@ -2860,11 +2863,18 @@ function createAllTools(): Record<string, ToolDefinition> {
             targetNodeIds: args.target_node_ids,
             evidence: args.evidence ? [{ kind: "change", detector: "sdd.findings", excerpt: args.evidence }] : [],
           })
+          if (args.task_id) {
+            try { writeTaskDossier(ctx.directory, graph, args.task_id) } catch { /* task may have been removed */ }
+          }
         } else if (action === "create_task") {
           createFindingTask(graph, finding as FindingNode, {
             purpose: purpose as "documentation" | "reverse_engineering",
             targetNodeId: args.target_node_ids?.[0],
           })
+          const dossiers = writeTaskDossiers(ctx.directory, graph)
+          repo.saveGraph(graph)
+          invalidateCacheForMutation(ctx.directory, ["finding", "task"], ["tracked_by", "resolves", "evidenced_by"])
+          return `${formatFindingsReport(graph, purpose as "documentation" | "reverse_engineering")}\n\nTask dossiers generated: ${dossiers.length}.`
         } else {
           return `Unknown action ${action}.`
         }
@@ -2902,18 +2912,24 @@ function createAllTools(): Record<string, ToolDefinition> {
         ),
       },
       async execute(args, ctx) {
+        const purpose = args.purpose
+        if (purpose !== "documentation" && purpose !== "reverse_engineering") {
+          return "Error: purpose is required and must be 'documentation' or 'reverse_engineering'. " +
+            "Call sdd.discover, ask the user with the question tool, and only then run the scan."
+        }
+
         const repo = getRepo(ctx.directory)
         if (!repo.isInitialized()) {
           repo.createProject(
             "project",
             "Project",
             "Reverse-engineered from existing codebase",
-            args.purpose as "documentation" | "reverse_engineering",
+            purpose,
           )
         }
 
         const result = reverseEngineerProject(ctx.directory, {
-          purpose: args.purpose as "documentation" | "reverse_engineering",
+          purpose,
           depth: (args.depth as "structure" | "full") || "full",
           focusDirs: args.focus_dirs?.split(",").map(s => s.trim()),
         })
@@ -2922,10 +2938,10 @@ function createAllTools(): Record<string, ToolDefinition> {
         const graph = repo.loadGraph()
 
         // Set purpose in metadata
-        graph.metadata.purpose = args.purpose as "documentation" | "reverse_engineering"
+        graph.metadata.purpose = purpose
         const projectNode = graph.nodes.find(n => n.type === "project")
         if (projectNode) {
-          projectNode.metadata.purpose = args.purpose
+          projectNode.metadata.purpose = purpose
         }
 
         // Build graph from analysis using existing graph builder
@@ -2940,16 +2956,20 @@ function createAllTools(): Record<string, ToolDefinition> {
         // keeps them open and creates remediation tasks; reverse engineering
         // converts them into target requirements and closes the source finding
         // only after the target behaviour is represented in the SDD.
-        const findingSummary = materializeBrownfieldFindings(graph, result.findings, args.purpose as "documentation" | "reverse_engineering")
+        const findingSummary = materializeBrownfieldFindings(graph, result.findings, purpose)
 
         // For documentation mode: mark all spec nodes as APPROVED (they represent reality)
-        if (args.purpose === "documentation") {
+        if (purpose === "documentation") {
           for (const node of graph.nodes) {
             if (["feature", "entity", "endpoint", "architecture_component", "requirement", "business_rule", "decision"].includes(node.type) && node.status === "DRAFT") {
               node.status = "APPROVED"
             }
           }
         }
+
+        // The scan is a task-producing bootstrap: every task needs its dossier,
+        // including the target backlog and the documentation remediation cards.
+        const dossiers = writeTaskDossiers(ctx.directory, graph)
 
         repo.saveGraph(graph)
         invalidateCacheForMutation(ctx.directory, [...new Set(graph.nodes.map(n => n.type))], [...new Set(graph.relationships.map(r => r.type))])
@@ -2960,14 +2980,15 @@ function createAllTools(): Record<string, ToolDefinition> {
           `### Graph Updated`,
           `- **Nodes:** ${graph.nodes.length}`,
           `- **Relationships:** ${graph.relationships.length}`,
-          `- **Purpose:** ${args.purpose}`,
+          `- **Purpose:** ${purpose}`,
           `- **Findings created:** ${findingSummary.created}`,
           `- **Tasks created:** ${findingSummary.tasks}`,
+          `- **Task dossiers generated:** ${dossiers.length}`,
           "",
           "Use `sdd.inspect` to review the graph.",
         ]
 
-        if (args.purpose === "reverse_engineering") {
+        if (purpose === "reverse_engineering") {
           const unresolved = getFindings(graph).filter((finding) => finding.metadata.purpose === "reverse_engineering" && !["resolved", "closed", "accepted", "wont_fix"].includes(finding.status))
           lines.push(
             "",
@@ -3706,15 +3727,16 @@ function createAllTools(): Record<string, ToolDefinition> {
     "sdd.integrate_tasks": tool({
       description:
         "Kanban task board bridge: list tasks pending AI integration, create/update/remove tasks, " +
-        "mark them as integrated once they are linked to the Knowledge Graph, and open/approve the " +
-        "SDD Change that authorizes the code for a task. " +
+        "mark them as integrated once they are linked to the Knowledge Graph, open/approve the " +
+        "SDD Change for evolution, and export a reverse-engineering target backlog to a fresh project " +
+        "(with an optional dry run that previews the copy without writing). " +
         "Used by the dashboard workflow so a manual task becomes part of the specification and can be implemented.",
       args: {
         action: tool.schema
-          .enum(["list", "create", "update", "remove", "mark_integrated", "approve_task", "reject_task", "dossier", "open_change", "approve_change"])
+          .enum(["list", "create", "update", "remove", "mark_integrated", "approve_task", "reject_task", "dossier", "open_change", "approve_change", "export_target"])
           .optional()
           .describe(
-            "Operation: list (default) | create | update | remove | mark_integrated | approve_task | reject_task | dossier | open_change | approve_change",
+            "Operation: list (default) | create | update | remove | mark_integrated | approve_task | reject_task | dossier | open_change | approve_change | export_target",
           ),
         task_id: tool.schema.string().optional().describe("ID da task (update/remove/mark_integrated)"),
         name: tool.schema.string().optional().describe("Task name (create/update)"),
@@ -3740,6 +3762,14 @@ function createAllTools(): Record<string, ToolDefinition> {
           .describe(
             "open_change/approve_change: declares that the Change does not alter specified behaviour (skips the requirement evidence)",
           ),
+        target_dir: tool.schema.string().optional().describe("export_target: new empty directory for the target project"),
+        project_name: tool.schema.string().optional().describe("export_target: target project name"),
+        tech_stack: tool.schema.string().optional().describe(
+          "export_target: chosen stack as JSON or layer=technology pairs, e.g. {\"backend\":\"NestJS\",\"database\":\"PostgreSQL\"}",
+        ),
+        dry_run: tool.schema.boolean().optional().describe(
+          "export_target: preview the nodes, tasks and dossiers that would be created without writing the target project",
+        ),
       },
       async execute(args, ctx) {
         const repo = getRepo(ctx.directory)
@@ -3774,6 +3804,21 @@ function createAllTools(): Record<string, ToolDefinition> {
         if (action === "list") {
           const pending = getPendingIntegrationTasks(graph)
           return pending.length > 0 ? buildIntegrationBrief(graph) : formatTaskList()
+        }
+
+        if (action === "export_target") {
+          if (!args.target_dir) return "`target_dir` is required to export the target backlog."
+          try {
+            const result = exportTargetBacklog(ctx.directory, graph, {
+              targetDir: args.target_dir,
+              projectName: args.project_name,
+              techStack: args.tech_stack,
+              dryRun: args.dry_run,
+            })
+            return formatTargetExport(result)
+          } catch (error) {
+            return `Error: ${error instanceof Error ? error.message : String(error)}`
+          }
         }
 
         if (action === "create") {
@@ -3904,7 +3949,7 @@ function createAllTools(): Record<string, ToolDefinition> {
           }
         }
 
-        return `Unknown action \`${action}\`. Use list, create, update, remove, mark_integrated, approve_task, reject_task, dossier, open_change or approve_change.`
+        return `Unknown action \`${action}\`. Use list, create, update, remove, mark_integrated, approve_task, reject_task, dossier, open_change, approve_change or export_target.`
       },
     }),
 

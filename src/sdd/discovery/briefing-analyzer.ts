@@ -1,3 +1,5 @@
+import type { SddPurpose } from "../domain/types.js"
+
 // ─── Extracted Elements ────────────────────────────────────────────
 
 export interface ExtractedFeature {
@@ -64,6 +66,8 @@ export interface ExtractedTask {
   requirement?: string
   feature?: string
   endpoint?: string
+  purpose?: SddPurpose
+  execution_scope?: "source" | "target"
 }
 
 export interface ExtractedRelationship {
@@ -84,6 +88,8 @@ export interface BriefingDeepAnalysis {
   relationships: ExtractedRelationship[]
   domains: string[]
   techStack: Record<string, string>
+  /** Set by the brownfield scanner so the graph builder can distinguish modes. */
+  purpose?: SddPurpose
 }
 
 // ─── Feature Extraction ────────────────────────────────────────────

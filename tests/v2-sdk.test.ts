@@ -19,7 +19,7 @@ interface RecordedTool {
 }
 
 /** Minimal stand-in for the V2 host, recording everything the plugin registers. */
-function createHarness() {
+function createHarness(options: { failSynthetic?: boolean } = {}) {
   const namespaces: Array<{ name: string; description: string }> = []
   const tools = new Map<string, RecordedTool>()
   const hooks = new Map<string, (event: never) => unknown>()
@@ -69,6 +69,7 @@ function createHarness() {
         return undefined
       },
       synthetic: async (input) => {
+        if (options.failSynthetic) throw new Error("synthetic unavailable")
         synthetics.push(input)
         return undefined
       },
@@ -281,7 +282,22 @@ describe("V2 SDK — host registration", () => {
 
     expect(harness.synthetics).toHaveLength(1)
     expect(harness.synthetics[0].resume).toBe(false)
+    expect(harness.synthetics[0].text).toContain("SDD enforcement")
     expect(harness.prompts).toHaveLength(0)
+  })
+
+  it("falls back to a one-line confirmation without re-running the command", async () => {
+    const harness = createHarness({ failSynthetic: true })
+    await registerSddV2(harness.ctx, harness.ctx.location.directory)
+
+    const command = harness.commands.find((c) => c.name === "sdd")!
+    await command.execute({ sessionID: "ses_test", prompt: { text: "on" }, delivery: "steer" })
+
+    expect(harness.synthetics).toHaveLength(0)
+    expect(harness.prompts).toHaveLength(1)
+    expect(harness.prompts[0].text).toContain("already executed")
+    expect(harness.prompts[0].text).toContain("Do not call tools")
+    expect(harness.prompts[0].text).toContain("approved task")
   })
 
   it("auto-allows a Telos tool call in the permission hook", async () => {

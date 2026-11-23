@@ -261,11 +261,17 @@ export async function registerSddV2(
           // `resume: false` records the message durably in the session inbox
           // without scheduling a model request, which is what makes
           // `/sdd status` genuinely free.
-          await ctx.session.synthetic({ sessionID, text: result.text, resume: false })
+          await ctx.session.synthetic({ sessionID, text: result.inline, resume: false })
         } catch (error) {
           if (options.debug) sddDebug("v2", `synthetic delivery failed: ${String(error)}`)
           // Fall back to a normal prompt for hosts without synthetic messages.
-          await ctx.session.prompt({ sessionID, text: result.text, delivery })
+          // The command has already been executed; the model may only phrase the
+          // result, never decide or repeat the side effect.
+          await ctx.session.prompt({
+            sessionID,
+            text: "The SDD command was already executed. Do not call tools. Reply with one short sentence confirming exactly this result:\n\n" + result.inline,
+            delivery,
+          })
         }
       },
     })
