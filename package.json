@@ -1,14 +1,14 @@
 {
   "name": "@oktis-works/telos-sdd-graph",
-  "version": "3.4.5",
+  "version": "3.4.6",
   "description": "OpenCode Telos - Spec-Driven Development plugin with Knowledge Graph enforcement",
-  "homepage": "https://github.com/JudahAragao/opencode-telos#readme",
+  "homepage": "https://github.com/oktis-works/opencode-telos#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JudahAragao/opencode-telos.git"
+    "url": "https://github.com/oktis-works/opencode-telos.git"
   },
   "bugs": {
-    "url": "https://github.com/JudahAragao/opencode-telos/issues"
+    "url": "https://github.com/oktis-works/opencode-telos/issues"
   },
   "license": "MIT",
   "author": "Telos Team",
