@@ -2,7 +2,6 @@ node_modules/
 .sdd/
 *.log
 .DS_Store
-package-lock.json
 .opencode/
 *.tgz
 dist/
